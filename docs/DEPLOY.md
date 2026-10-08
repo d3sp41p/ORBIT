@@ -18,8 +18,8 @@
 1. railway.com → **New Project → Deploy from GitHub repo** → тот же репозиторий.
 2. В настройках сервиса:
    - **Root Directory:** оставить пустым (корень репозитория — нужен для монорепо).
-   - **Config-as-code → Railway Config File:** `apps/worker/railway.json`.
-     Там уже указаны `apps/worker/Dockerfile`, healthcheck `/health` и перезапуск при падении.
+   - Config подхватывается сам из `railway.json` в корне репозитория (если в **Config-as-code** что-то вписано — очистить).
+     Там указаны `apps/worker/Dockerfile`, healthcheck `/health` и перезапуск при падении.
 3. **Settings → Networking → Generate Domain** (порт 8080), чтобы открыть `/health` снаружи.
 4. Проверка: в логах `[worker] started on :8080`, раз в минуту `[worker] alive ...`; `https://<домен>/health` отдаёт `{"status":"ok",...}`.
 
