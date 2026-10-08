@@ -119,6 +119,9 @@ export class TokenController {
       backfillLimit: this.cfg.backfillLimit,
     });
     await indexer.init();
+    await this.db.query(`update system_state set token_decimals = $1 where id = 1`, [
+      indexer.decimals,
+    ]);
     this.mint = mint;
     log(previous ? `now indexing ${mint}` : `indexing ${mint}`);
     // History first, then live updates (applyPending/snapshot loops use this.indexer).
@@ -131,6 +134,7 @@ export class TokenController {
     }
     this.indexer = indexer;
     await indexer.snapshot();
+    await indexer.refreshRanksNow();
     await indexer.refreshPrice();
   }
 

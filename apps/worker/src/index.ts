@@ -3,6 +3,7 @@ import { TokenController } from "./controller";
 import { loadConfig, type WorkerConfig } from "./env";
 import { startHealthServer, type HealthState } from "./health";
 import { Helius } from "./helius";
+import { Planets } from "./planets";
 
 const state: HealthState = { startedAt: new Date() };
 let cfg: WorkerConfig;
@@ -27,6 +28,7 @@ const db = new pg.Pool({
 });
 const helius = new Helius(cfg!.heliusKey);
 const token = new TokenController(db, helius, cfg!, state);
+const planets = new Planets(db);
 state.webhook =
   cfg!.webhookUrl && cfg!.webhookSecret
     ? "ready"
@@ -60,6 +62,12 @@ void every("token", 3, () => token.tick());
 void every("apply", 5, async () => token.indexer?.applyPending());
 void every("snapshot", cfg!.snapshotSec, async () => token.indexer?.snapshot());
 void every("price", 60, async () => token.indexer?.refreshPrice());
+// Planet life: births and deaths follow the holders; due ticks are caught up in batches.
+void every("lifecycle", 10, async () => token.indexer && (await planets.lifecycle()));
+void every("ticks", 30, async () => {
+  if (!token.indexer) return;
+  while ((await planets.ticks()) === 100 && !stopping);
+});
 timers.push(
   setInterval(
     () => console.log(`[worker] alive, Helius credits used ~${helius.credits}`),

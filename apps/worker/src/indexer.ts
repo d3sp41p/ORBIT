@@ -11,6 +11,7 @@ import {
   chainEvents,
   classOf,
   orbitOf,
+  planetName,
   rankHolders,
   starTierIndex,
   toChainTx,
@@ -190,6 +191,18 @@ export class Indexer {
             hs.map((h) => h.lastSlot),
           ],
         );
+      // Moment each life ended (the planet's last sell lands then). The last
+      // birth or death of a wallet in this batch decides.
+      const last = new Map<string, { died: boolean; at: number }>();
+      for (const e of effects)
+        if (e.effect.type === "died" || e.effect.type === "born")
+          last.set(e.wallet, { died: e.effect.type === "died", at: e.at });
+      if (last.size)
+        await client.query(
+          `update holders h set died_at = v.at from unnest($1::text[], $2::timestamptz[]) as v(wallet, at)
+           where h.wallet = v.wallet`,
+          [[...last.keys()], [...last.values()].map((v) => (v.died ? new Date(v.at) : null))],
+        );
       await client.query(
         `update chain_events set applied = true
          where (sig, ix_index) in (select * from unnest($1::text[], $2::int[]))`,
@@ -203,6 +216,22 @@ export class Indexer {
         `applied ${pending.rowCount} events, ${changed.size} holders changed, +${births} planets, -${deaths}`,
       );
       return pending.rowCount ?? 0;
+    } catch (e) {
+      await client.query("rollback");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Recalculate ranks, orbits and names now (e.g. on start). */
+  async refreshRanksNow() {
+    const client = await this.db.connect();
+    try {
+      await client.query("begin");
+      await client.query("select pg_advisory_xact_lock(4242)");
+      await this.refreshRanks(client);
+      await client.query("commit");
     } catch (e) {
       await client.query("rollback");
       throw e;
@@ -225,13 +254,15 @@ export class Indexer {
     );
     const N = ranked.length;
     await client.query(
-      `update holders set rank = null, class = null, time_rank = null, orbit = null
+      `update holders set rank = null, class = null, time_rank = null
        where status <> 'alive' and rank is not null`,
     );
     if (N) {
       await client.query(
-        `update holders h set rank = v.rank, class = v.class, time_rank = v.time_rank, orbit = v.orbit
-         from unnest($1::text[], $2::int[], $3::text[], $4::int[], $5::float8[]) as v(wallet, rank, class, time_rank, orbit)
+        `update holders h set rank = v.rank, class = v.class, time_rank = v.time_rank, orbit = v.orbit,
+           name = coalesce(h.name, v.name)
+         from unnest($1::text[], $2::int[], $3::text[], $4::int[], $5::float8[], $6::text[])
+           as v(wallet, rank, class, time_rank, orbit, name)
          where h.wallet = v.wallet`,
         [
           ranked.map((r) => r.wallet),
@@ -239,6 +270,7 @@ export class Indexer {
           ranked.map((r) => classOf(r.rank)),
           ranked.map((r) => r.timeRank),
           ranked.map((r) => orbitOf(r.wallet, r.timeRank, N).orbit),
+          ranked.map((r) => planetName(r.wallet)),
         ],
       );
     }

@@ -6,6 +6,7 @@ export * from "./format";
 export * from "./launch";
 export * from "./math";
 export * from "./names";
+export * from "./planet";
 export * from "./rng";
 export * from "./sim";
 export * from "./state";
