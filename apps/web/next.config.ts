@@ -1,4 +1,9 @@
+import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
+import { fileURLToPath } from "node:url";
+
+// Local development keeps one .env.local at the repo root for web and worker.
+loadEnvConfig(fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
  * The only environment variables allowed to reach the browser.
@@ -12,6 +17,7 @@ const PUBLIC_ENV = [
   "TOKEN_NAME",
   "BUY_URL",
   "X_URL",
+  "MIN_HOLDING_TOKENS",
 ] as const;
 
 const nextConfig: NextConfig = {

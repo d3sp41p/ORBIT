@@ -77,6 +77,11 @@ export default function OrbitShell() {
         </dl>
         <div className="spacer" />
         <span className="demo">{t.demo}</span>
+        {/* Full page loads on purpose: the 3D engine starts once per document. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a className="btn" href="/rules">
+          {t.rules}
+        </a>
         <a className="btn" id="xLink" href={brand.xUrl} target="_blank" rel="noopener noreferrer">
           X
         </a>
@@ -112,6 +117,10 @@ export default function OrbitShell() {
           </button>
         </form>
         <div className="search-help" id="searchHelp" />
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a className="rules-link" href="/rules">
+          {t.rulesLink} <span aria-hidden="true">→</span>
+        </a>
       </section>
 
       <section className="hud gfeed" aria-live="polite">

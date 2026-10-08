@@ -44,6 +44,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@next/env':
+        specifier: 16.4.0
+        version: 16.4.0
       '@orbit/core':
         specifier: workspace:*
         version: link:../../packages/core

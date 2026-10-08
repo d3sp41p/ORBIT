@@ -10,4 +10,6 @@ export const brand = {
   contract: process.env.TOKEN_MINT || DEMO.contract,
   buyUrl: process.env.BUY_URL || "#",
   xUrl: process.env.X_URL || "#",
+  /** Minimum balance (whole tokens) to become a planet. */
+  minHolding: Number(process.env.MIN_HOLDING_TOKENS) || 100_000,
 };

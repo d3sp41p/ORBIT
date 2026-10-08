@@ -1078,3 +1078,22 @@ dl.kv dd.num {
   padding: 4px 8px;
   pointer-events: none;
 }
+
+/* link to the mission rules page */
+.rules-link {
+  align-self: flex-start;
+  font: 600 10.5px var(--f-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--signal);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(252, 61, 33, 0.45);
+  padding-bottom: 2px;
+}
+.rules-link:hover {
+  border-color: var(--signal);
+}
+.rules-link:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

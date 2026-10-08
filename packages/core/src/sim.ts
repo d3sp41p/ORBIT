@@ -434,6 +434,18 @@ export function applyEvent(
   ev(S, day, k, p);
 }
 
+/**
+ * Upper bounds of sell shares for catastrophe types 0-3 (see CATASTROPHES);
+ * a sell of the whole balance (share 1) is type 4.
+ */
+export const SELL_TIERS = [0.1, 0.3, 0.6, 1] as const;
+
+/** Catastrophe type for a sell share at or above sellIgnoreBelow. */
+export const catastropheOf = (f: number) => {
+  const i = SELL_TIERS.findIndex((max) => f < max);
+  return i === -1 ? SELL_TIERS.length : i;
+};
+
 export function applySell(S: SimState, _h: SimHolder, day: number, s: Sell): void {
   const f = s.frac;
   if (f < BALANCE.sellIgnoreBelow) {
@@ -443,7 +455,7 @@ export function applySell(S: SimState, _h: SimHolder, day: number, s: Sell): voi
   s.counted = true;
   S.catCount++;
   const k = f * BALANCE.sellPenalty;
-  const c = f < 0.1 ? 0 : f < 0.3 ? 1 : f < 0.6 ? 2 : f < 1 ? 3 : 4;
+  const c = catastropheOf(f);
   S.pop *= 1 - k;
   S.bio *= 1 - k * 0.6;
   S.tech = Math.max(0, S.tech - k * 2.2);

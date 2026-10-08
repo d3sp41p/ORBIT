@@ -36,6 +36,8 @@ export const copy = {
     mcap: "Market cap",
   },
   demo: "Demo data",
+  rules: "Rules",
+  rulesLink: "Read the mission rules",
   buy: (ticker: string) => `Buy $${ticker}`,
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
@@ -156,3 +158,141 @@ export const copy = {
 } as const;
 
 export const LOCALE = "en-GB";
+
+/** Mission rules page (/rules). Numbers are passed in from the game config. */
+export const rulesCopy = {
+  title: "Mission rules",
+  metaDescription:
+    "How ORBIT works: who becomes a planet, what sets its size and orbit, how the simulation runs and what selling does.",
+  eyebrow: "Flight rules · Holder Exploration Program",
+  h1: ["How a world is born,", "grows and falls."],
+  lede: "Every holder of the coin is a planet orbiting the coin-star. The chain decides who you are in the system. The simulation decides what happens to your world. Here is the whole rulebook.",
+  back: "Back to system",
+  toc: "Contents",
+  rules: {
+    entry: {
+      tag: "Rule 01",
+      title: "Entry: hold the minimum",
+      lead: (min: string, ticker: string) =>
+        `Hold at least ${min} $${ticker} in one wallet and a planet forms for you.`,
+      points: (min: string) => [
+        `Below ${min} tokens there is no planet: small balances stay as dust in the belt.`,
+        "Your wallet is what counts. Tokens spread across several token accounts of the same wallet are added together.",
+        `If your balance drops below ${min}, your planet is destroyed, exactly as after a full sell.`,
+      ],
+      gaugeLabel: "Wallet balance",
+      dust: "Dust",
+      world: "World forms",
+    },
+    size: {
+      tag: "Rule 02",
+      title: "Size = your rank",
+      lead: "Your place by balance among all holders sets the class and size of your planet.",
+      points: [
+        "Ranks are recalculated with every chain snapshot, about once a minute.",
+        "When your rank changes, your planet grows or shrinks smoothly.",
+      ],
+    },
+    orbit: {
+      tag: "Rule 03",
+      title: "Orbit = time held",
+      lead: "The longer you hold, the closer you orbit the star. The oldest holder flies nearest.",
+      points: [
+        "Your hold starts the moment your balance first reaches the minimum.",
+        "Buying more never resets your hold start.",
+        "Orbits move on a shared clock, so every visitor sees every planet in the same place.",
+      ],
+      legendOld: "Oldest holders",
+      legendNew: "Newest holders",
+    },
+    sim: {
+      tag: "Rule 04",
+      title: "The simulation never sleeps",
+      lead: (hours: number) =>
+        `Every ${hours} hours your planet takes one step of its own history, counted from the start of your hold.`,
+      points: (chance: number, astChance: number) => [
+        `Each step has a ${chance}% chance of an event: volcanoes, comets, ice ages, wars, golden ages, elections and more (asteroids: about ${astChance}%).`,
+        "Time held raises stability. Stable worlds suffer fewer disasters and grow faster.",
+        "Bigger planets get a bonus to stability and technology; #1 gets the most.",
+        "Life, cities and spaceflight are never guaranteed. Some worlds stay barren forever.",
+        "Very rarely a world makes a discovery that stays in its collection for good.",
+      ],
+      clock: "One step",
+      erasTitle: "Eras of a world",
+      erasNote: "Eras can also go backwards after wars, pandemics and catastrophes.",
+    },
+    sell: {
+      tag: "Rule 05",
+      title: "Selling hits your world",
+      lead: "Every sell is measured against your balance just before it. The bigger the share, the harder the strike.",
+      ignore: (pct: string) => `under ${pct}: nothing happens`,
+      tierRange: (from: string, to: string) => `${from} to under ${to}`,
+      tierFull: "100%: everything sold",
+      points: (pct: string) => [
+        `Sells under ${pct} of your balance go unnoticed.`,
+        "A strike lands on your planet's next step: population, biosphere, technology and stability roll back.",
+        "Sending tokens to another wallet counts as a sell for you and a buy for the receiver.",
+        "Buying never hurts: top-ups only add to your balance.",
+      ],
+    },
+    death: {
+      tag: "Rule 06",
+      title: "Death and rebirth",
+      lead: "Sell everything, or fall below the minimum, and your planet is destroyed.",
+      points: [
+        "A cloud of debris stays in its orbit for 24 hours.",
+        "Its history goes to the archive and is never lost.",
+        "Buy back in and a new world forms: the same look (it comes from your address), but progress and hold time start from zero.",
+      ],
+    },
+    rings: {
+      tag: "Rule 07",
+      title: "Rings and honours",
+      lead: (days: number) =>
+        `Hold for ${days} days without a single sell and your world earns rings.`,
+      points: [
+        "Achievements mark the first settlers, diamond hands, the top 10, early life, ring-worlds, survivors and collectors.",
+      ],
+    },
+    star: {
+      tag: "Rule 08",
+      title: "The star is the coin",
+      lead: "The star at the centre is the coin itself. It changes class as the market cap crosses each threshold.",
+      under: "under",
+      over: "and above",
+    },
+    news: {
+      tag: "Rule 09",
+      title: "News from the facts",
+      lead: "Mission news reports what the simulation decided. Every number in a story comes from the simulation itself.",
+      points: [
+        "News appears live, without reloading the page.",
+        "Stories never mention prices or give buying or selling advice.",
+      ],
+    },
+    owner: {
+      tag: "Rule 10",
+      title: "Your planet, your names",
+      soon: "Coming soon",
+      lead: "Connect your wallet and sign a message to name your planet, species, capital and motto.",
+      points: [
+        "Only the owner of a planet can change it.",
+        "We will never ask you to sign a transaction. Signing in only proves you own the wallet.",
+        "Names are checked for abuse and can be reported.",
+      ],
+    },
+    excluded: {
+      tag: "Rule 11",
+      title: "Who is not a planet",
+      lead: "Some accounts hold tokens but are not people. They never appear in the system:",
+      points: [
+        "the bonding curve and liquidity pools (program accounts),",
+        "the burn address,",
+        "team wallets.",
+      ],
+    },
+  },
+  disclaimer:
+    "ORBIT is an entertainment visualisation. Planets, civilizations and events have no monetary value and are not financial advice.",
+  cta: "Find your planet",
+} as const;

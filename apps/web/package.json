@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@next/env": "16.4.0",
     "@orbit/core": "workspace:*",
     "next": "16.4.0",
     "react": "19.3.0",
