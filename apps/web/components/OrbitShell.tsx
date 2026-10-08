@@ -12,8 +12,9 @@ export default function OrbitShell() {
   useEffect(() => {
     const m = location.pathname.match(/^\/planet\/([^/]+)/);
     const initialWallet = m ? decodeURIComponent(m[1]!) : null;
-    const debug = new URLSearchParams(location.search).has("debug");
-    import("@/orbit/app").then(({ start }) => start({ initialWallet, debug }));
+    const params = new URLSearchParams(location.search);
+    const debug = params.has("debug");
+    import("@/orbit/app").then(({ start }) => start({ initialWallet, debug, overrides: params }));
   }, []);
 
   return (

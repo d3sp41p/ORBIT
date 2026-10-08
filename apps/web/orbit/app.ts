@@ -53,8 +53,10 @@ import {
   savePref,
   type Quality,
   type QualityPref,
+  type QualitySpec,
 } from "./quality";
 import { pickBody, type ScreenBody } from "./pick";
+import { createSanitizePass } from "./sanitize";
 import * as SH from "./shaders";
 
 type Body = DemoHolder & {
@@ -83,6 +85,8 @@ export interface StartOptions {
   /** Wallet from /planet/<wallet>; the camera flies to it after load. */
   initialWallet?: string | null;
   debug?: boolean;
+  /** Debug-only render overrides from the URL, e.g. ?debug&bloom=0&dpr=1 */
+  overrides?: URLSearchParams;
 }
 
 export function start(opts: StartOptions = {}) {
@@ -129,7 +133,21 @@ export function start(opts: StartOptions = {}) {
       memoryGb: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
     });
   let quality: Quality = pref === "auto" ? auto() : pref;
-  let Q = QUALITY[quality];
+  // Debug overrides (only with ?debug): bloom=0|1, dpr=<max>, sky=<res>,
+  // stars=<count>, detail=hi|mid, san=0|1. Used to track down rendering issues.
+  const ov0 = opts.debug ? opts.overrides : undefined;
+  const num = (k: string) => (ov0?.has(k) ? Number(ov0.get(k)) : undefined);
+  const spec = (q: Quality): QualitySpec => {
+    const base = QUALITY[q];
+    return {
+      maxDpr: num("dpr") ?? base.maxDpr,
+      skyRes: num("sky") ?? base.skyRes,
+      nearStars: num("stars") ?? base.nearStars,
+      bloom: ov0?.has("bloom") ? ov0.get("bloom") === "1" : base.bloom,
+      maxDetail: (ov0?.get("detail") as QualitySpec["maxDetail"] | null) ?? base.maxDetail,
+    };
+  };
+  let Q = spec(quality);
 
   /* ================= renderer / scene ================= */
   const glc = $<HTMLCanvasElement>("gl");
@@ -612,6 +630,9 @@ export function start(opts: StartOptions = {}) {
   /* ================= post ================= */
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
+  const sanitizePass = createSanitizePass();
+  sanitizePass.enabled = ov0?.get("san") !== "0";
+  composer.addPass(sanitizePass);
   const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.5, 0.9);
   bloom.enabled = Q.bloom;
   composer.addPass(bloom);
@@ -1063,7 +1084,7 @@ export function start(opts: StartOptions = {}) {
   }
   function setQuality(q: Quality) {
     quality = q;
-    Q = QUALITY[q];
+    Q = spec(q);
     renderer.setPixelRatio(dpr());
     composer.setPixelRatio(dpr());
     nearStarsMat.uniforms.uDpr!.value = renderer.getPixelRatio();
@@ -1103,6 +1124,7 @@ export function start(opts: StartOptions = {}) {
       scene,
       controls,
       THREE,
+      composer,
     };
 
   /* ================= loop ================= */
@@ -1218,7 +1240,7 @@ export function start(opts: StartOptions = {}) {
       meterFrames++;
       meterTime += realDt;
       if (meterTime >= 0.5) {
-        meter.textContent = `${Math.round(meterFrames / meterTime)} FPS · ${quality.toUpperCase()}`;
+        meter.textContent = `${Math.round(meterFrames / meterTime)} FPS · ${quality.toUpperCase()} · DPR ${renderer.getPixelRatio()} · BLOOM ${bloom.enabled ? "ON" : "OFF"} · SKY ${Q.skyRes} · FILTER ${sanitizePass.enabled ? "ON" : "OFF"}`;
         meterFrames = 0;
         meterTime = 0;
       }
