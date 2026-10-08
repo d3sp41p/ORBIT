@@ -3,6 +3,7 @@
 //
 //   pnpm launch:arm <devWallet> <TICKER> "<Name>" [xUrl]   wait for the coin, switch automatically
 //   pnpm launch <mint> [xUrl]                               switch to a coin now (manual)
+//   pnpm launch:test <mint>                                 index a coin privately (acceptance tests)
 //   pnpm launch:status                                      show what is configured
 //   pnpm launch:disarm                                      stop waiting
 //   pnpm launch:reset                                       forget the coin, back to the stand-in
@@ -38,9 +39,11 @@ const show = async () => {
   console.log(
     r.launched
       ? `LAUNCHED: ${r.ticker ?? "?"} ${r.mint} (since ${r.launched_at?.toISOString()})`
-      : r.armed
-        ? `ARMED: waiting for ${r.expected_ticker ?? "?"} / ${r.expected_name ?? "?"} from ${r.dev_wallet}`
-        : "IDLE: using the stand-in TOKEN_MINT from the environment",
+      : r.mint
+        ? `TEST: indexing ${r.mint} privately (not shown on the site)`
+        : r.armed
+          ? `ARMED: waiting for ${r.expected_ticker ?? "?"} / ${r.expected_name ?? "?"} from ${r.dev_wallet}`
+          : "IDLE: using the stand-in TOKEN_MINT from the environment",
   );
   console.log({
     buyUrl: r.buy_url,
@@ -85,6 +88,22 @@ try {
       console.log("Launched. The worker switches within seconds and restores the history.");
       break;
     }
+    case "test": {
+      const [mint] = args;
+      if (!B58.test(mint ?? "")) {
+        console.error("usage: pnpm launch:test <mint>");
+        process.exit(1);
+      }
+      await db.query(
+        `update token_config set mint = $1, launched = false, launched_at = null, armed = false,
+           updated_at = now() where id = 1`,
+        [mint],
+      );
+      console.log(
+        "Test mode: the worker indexes this coin and puts the webhook on it. Nothing is shown publicly. Finish with: pnpm launch:reset",
+      );
+      break;
+    }
     case "disarm":
       await db.query(`update token_config set armed = false, updated_at = now() where id = 1`);
       console.log("Disarmed.");
@@ -102,7 +121,7 @@ try {
     case "status":
       break;
     default:
-      console.error("commands: arm, launch, status, disarm, reset");
+      console.error("commands: arm, launch, test, status, disarm, reset");
       process.exit(1);
   }
   await show();

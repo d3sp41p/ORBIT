@@ -21,7 +21,8 @@
     "launch:arm": "node scripts/launch.mjs arm",
     "launch:status": "node scripts/launch.mjs status",
     "launch:disarm": "node scripts/launch.mjs disarm",
-    "launch:reset": "node scripts/launch.mjs reset"
+    "launch:reset": "node scripts/launch.mjs reset",
+    "launch:test": "node scripts/launch.mjs test"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

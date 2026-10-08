@@ -76,15 +76,19 @@ export class TokenController {
     const mint = c.mint ?? this.cfg.mint;
     this.health.indexer = c.launched
       ? `launched: indexing ${c.ticker ?? "the coin"}`
-      : c.armed
-        ? "armed: waiting for the coin to be created"
-        : mint
-          ? "indexing a stand-in token (development)"
-          : "idle: no coin yet";
+      : c.mint
+        ? "test: indexing a coin privately"
+        : c.armed
+          ? "armed: waiting for the coin to be created"
+          : mint
+            ? "indexing a stand-in token (development)"
+            : "idle: no coin yet";
     // Webhook and public facts first: at launch they must not wait for the history.
     await this.publish(c, mint);
-    await this.syncWebhook(c, mint);
+    await this.syncWebhook(c);
     if (mint && mint !== this.mint) await this.switchTo(mint, c);
+    // Only a coin this process was indexing (e.g. a finished test) is cleared.
+    if (!mint && this.mint) await this.clear();
   }
 
   private async switchTo(mint: string, c: TokenConfigRow) {
@@ -130,6 +134,21 @@ export class TokenController {
     await indexer.refreshPrice();
   }
 
+  /** No coin configured any more (e.g. after a test): remove the old coin's data. */
+  private async clear() {
+    this.indexer = null;
+    this.mint = null;
+    log("no coin configured: clearing token tables");
+    await this.db.query(`truncate table ${TOKEN_TABLES.join(", ")}`);
+    await this.db.query(
+      `update system_state set holders_count = 0, mcap = 0, price = 0, star_tier = 0,
+         last_snapshot_at = null, updated_at = now() where id = 1`,
+    );
+    await this.db.query(
+      `update token_config set indexed_mint = null, backfilled_mint = null, updated_at = now() where id = 1`,
+    );
+  }
+
   /** Public token facts for the site. The contract address appears only after launch. */
   private async publish(c: TokenConfigRow, mint: string | null) {
     const launched = c.launched && !!mint;
@@ -151,8 +170,10 @@ export class TokenController {
   }
 
   /** Keep the Helius webhook pointed at what matters now. */
-  private async syncWebhook(c: TokenConfigRow, mint: string | null) {
-    const want = c.launched && mint ? [mint] : c.armed && c.dev_wallet ? [c.dev_wallet] : [];
+  private async syncWebhook(c: TokenConfigRow) {
+    // A coin set in the database (launched, or a private test) gets the webhook;
+    // the stand-in from the environment never does (it would burn credits).
+    const want = c.mint ? [c.mint] : c.armed && c.dev_wallet ? [c.dev_wallet] : [];
     if (sameList(want, c.webhook_addresses) && (want.length === 0 || c.webhook_id)) return;
     if (!this.cfg.webhookUrl || !this.cfg.webhookSecret) {
       if (want.length && !this.warnedNoWebhook) {
