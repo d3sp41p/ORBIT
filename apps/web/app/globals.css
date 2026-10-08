@@ -1,0 +1,21 @@
+:root {
+  --bg: #000;
+  --fg: #fff;
+  --line: rgba(255, 255, 255, 0.18);
+  --accent: #fc3d21;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --sans: "Public Sans", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+}
