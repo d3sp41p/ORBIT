@@ -715,10 +715,21 @@ export function start(opts: StartOptions = {}) {
     const now = performance.now();
     if (now - lastMove < 40) return;
     lastMove = now;
-    const p = pickAt(e.clientX, e.clientY);
+    let p = pickAt(e.clientX, e.clientY);
+    // Hysteresis: keep the current hover until the cursor is clearly away,
+    // so the label does not blink on and off at the edge of a planet.
+    if (!p && hovered) {
+      const s = project(hovered.pos);
+      const rr = Math.max(
+        screenR(hovered.pos, hovered.size) * 1.2,
+        hovered.cls === "asteroid" ? 6 : 9,
+      );
+      if (s.z <= 1 && Math.hypot(s.x - e.clientX, s.y - e.clientY) < rr * 1.5) p = hovered;
+    }
     setHover(p && p !== "star" ? p : null);
     glc.classList.toggle("hover", !!p);
-    if (p && e.pointerType === "mouse") {
+    // The selected planet is already described in the mission page: no label over it.
+    if (p && p !== selected && e.pointerType === "mouse") {
       tip.hidden = false;
       tip.style.left = e.clientX + "px";
       tip.style.top = e.clientY + "px";
@@ -1050,6 +1061,10 @@ export function start(opts: StartOptions = {}) {
       holders,
       camera,
       planets,
+      renderer,
+      scene,
+      controls,
+      THREE,
     };
 
   /* ================= loop ================= */
