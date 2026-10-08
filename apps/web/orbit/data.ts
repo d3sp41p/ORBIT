@@ -12,6 +12,7 @@ import {
   DEMO,
   generateDemoSystem,
   newsItem,
+  planetName,
   onTimeline,
   scenePlanet,
   starTierIndex,
@@ -179,7 +180,12 @@ export class LiveSource implements DataSource {
             at: new Date(r.at).getTime(),
             text: r.text_en,
             notable: true,
-            planet: { name: p?.name ?? "", rank: p?.rank ?? null, cls: p?.cls ?? null },
+            // A planet that just died is no longer in the scene: its stock name still is its name.
+            planet: {
+              name: p?.name ?? planetName(r.wallet),
+              rank: p?.rank ?? null,
+              cls: p?.cls ?? null,
+            },
           });
         },
       )
