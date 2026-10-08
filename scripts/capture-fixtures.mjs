@@ -14,11 +14,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function rpc(method, params) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await fetch(RPC, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    });
+    let res;
+    try {
+      res = await fetch(RPC, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+    } catch {
+      // network hiccup or timeout: wait and retry
+      await sleep(2000 * (attempt + 1));
+      continue;
+    }
     if (res.status === 429) {
       await sleep(1500 * (attempt + 1));
       continue;
@@ -27,7 +34,7 @@ async function rpc(method, params) {
     if (j.error) throw new Error(`${method}: ${JSON.stringify(j.error)}`);
     return j.result;
   }
-  throw new Error(`${method}: rate limited`);
+  throw new Error(`${method}: no response after retries`);
 }
 
 const mintInfo = await rpc("getAccountInfo", [mint, { encoding: "jsonParsed" }]);
