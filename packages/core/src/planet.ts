@@ -62,6 +62,8 @@ export interface ScenePlanet {
   name: string;
   rank: number;
   timeRank: number;
+  /** Orbit radius in scene units. */
+  orbit: number;
   /** Class by current rank (sets size). */
   cls: PlanetClass;
   /** Class at birth (sets the look and the simulation). */
@@ -82,6 +84,7 @@ export function scenePlanet(p: {
   name: string;
   rank: number;
   timeRank: number;
+  orbit: number;
   cls: PlanetClass;
   nature: PlanetClass;
   state: Pick<
@@ -96,6 +99,7 @@ export function scenePlanet(p: {
     name: p.name,
     rank: p.rank,
     timeRank: p.timeRank,
+    orbit: p.orbit,
     cls: p.cls,
     nature: p.nature,
     era: p.state.era,
@@ -163,7 +167,14 @@ export interface PlanetCard {
   finds: Find[];
   news: NewsItem[];
   newsTotal: number;
+  /** Milestones, discoveries and catastrophes of this life (up to 12, newest first). */
+  timeline: NewsItem[];
 }
+
+/** Kinds that make the mission timeline. */
+export const TIMELINE_KINDS = ["formed", "sell", "collapse", "eraDown"] as const;
+export const onTimeline = (k: SimEvent["k"]) =>
+  KIND[k] === "mile" || KIND[k] === "rare" || (TIMELINE_KINDS as readonly string[]).includes(k);
 
 export function cardFromState(p: {
   wallet: string;
@@ -185,6 +196,7 @@ export function cardFromState(p: {
   state: SimState | Omit<SimState, "r" | "news">;
   news: NewsItem[];
   newsTotal: number;
+  timeline: NewsItem[];
 }): PlanetCard {
   const S = p.state;
   const h = { cls: p.nature };
@@ -229,6 +241,7 @@ export function cardFromState(p: {
     finds: S.finds,
     news: p.news,
     newsTotal: p.newsTotal,
+    timeline: p.timeline,
   };
 }
 

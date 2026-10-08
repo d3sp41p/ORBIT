@@ -19,6 +19,7 @@ const log = (...a: unknown[]) => console.log("[token]", ...a);
 interface TokenConfigRow {
   mint: string | null;
   launched: boolean;
+  launched_at: Date | null;
   ticker: string | null;
   name: string | null;
   buy_url: string | null;
@@ -158,10 +159,10 @@ export class TokenController {
     const launched = c.launched && !!mint;
     await this.db.query(
       `update system_state set token_mint = $1, token_ticker = $2, token_name = $3, buy_url = $4,
-         x_url = $5, launched = $6
+         x_url = $5, launched = $6, launched_at = $7
        where id = 1 and (token_mint is distinct from $1 or token_ticker is distinct from $2
          or token_name is distinct from $3 or buy_url is distinct from $4 or x_url is distinct from $5
-         or launched is distinct from $6)`,
+         or launched is distinct from $6 or launched_at is distinct from $7)`,
       [
         launched ? mint : null,
         c.ticker,
@@ -169,6 +170,7 @@ export class TokenController {
         c.buy_url ?? (launched ? pumpFunUrl(mint!) : null),
         c.x_url,
         launched,
+        launched ? c.launched_at : null,
       ],
     );
   }

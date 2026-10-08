@@ -155,6 +155,14 @@ export const copy = {
   noLifeYet: "none yet",
   lifeImpossible: "conditions unsuitable",
   starH: "The star",
+  lostH: "Lost worlds",
+  destroyed: "Destroyed",
+  destroyedLede:
+    "The holder sold everything. The planet broke apart; its debris will drift in this orbit for a day. A new world forms if they buy back in.",
+  lastRecord: "Last record",
+  lastEra: "Last era",
+  lived: "Lived",
+  debris: "Debris",
 } as const;
 
 export const LOCALE = "en-GB";

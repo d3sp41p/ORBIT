@@ -1,7 +1,8 @@
 /**
  * The 3D system: scene, planets, camera, interaction, overlay labels and the
- * HUD wiring. Ported from reference/ORBIT_prototype.html. Data comes from the
- * demo generator for now (stage 5 switches it to the API).
+ * HUD wiring. Ported from reference/ORBIT_prototype.html. The planets come
+ * from a DataSource (orbit/data.ts): the server API with Realtime once the
+ * coin is live, the prototype's demo generator before that.
  */
 import {
   clamp,
@@ -9,23 +10,21 @@ import {
   DEMO,
   ease,
   esc,
-  generateDemoSystem,
+  fmt,
   KIND,
   money,
   mulberry32,
+  orbitOf,
   orbitSpeed,
   rngFor,
+  sizeOf,
   splitNews,
   STAR_TIERS,
-  starTierIndex,
-  step,
   TAG,
   TAU,
-  TICK,
-  visualOf,
-  fmt,
-  type DemoHolder,
-  type SimEvent,
+  type NewsItem,
+  type PlanetCard,
+  type ScenePlanet,
 } from "@orbit/core";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -36,13 +35,15 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import type { PublicToken } from "@/lib/token";
 import { copy as t } from "./copy";
 import {
-  agoText,
-  eraLabel,
-  newsOf,
-  planetPanelHTML,
-  starPanelHTML,
-  type SystemInfo,
-} from "./panel";
+  pickSource,
+  type CardResult,
+  type Debris,
+  type FeedItem,
+  type SceneData,
+  type StarInfo,
+} from "./data";
+import { agoText, deadPanelHTML, planetPanelHTML, starPanelHTML, type SystemInfo } from "./panel";
+import { pickBody, type ScreenBody } from "./pick";
 import {
   FpsGovernor,
   guessQuality,
@@ -55,23 +56,28 @@ import {
   type QualityPref,
   type QualitySpec,
 } from "./quality";
-import { pickBody, type ScreenBody } from "./pick";
 import { createSanitizePass } from "./sanitize";
 import * as SH from "./shaders";
 
-type Body = DemoHolder & {
+type Body = ScenePlanet & {
+  incl: number;
+  node: number;
+  ang0: number;
   q: THREE.Quaternion;
   pos: THREE.Vector3;
   speed: number;
+  /** Current drawn size; eases towards sizeOf(rank) when the rank changes. */
+  size: number;
   group?: THREE.Group;
   mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
   atmo?: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
   atmoMat?: THREE.ShaderMaterial;
+  ringMat?: THREE.ShaderMaterial;
   orbitLine?: THREE.LineLoop;
   sats?: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
   spin: number;
   astRot?: THREE.Euler;
-  astScale?: THREE.Vector3;
+  astShape?: THREE.Vector3;
   astSpin?: number;
   idx?: number;
 };
@@ -87,14 +93,14 @@ export interface StartOptions {
   debug?: boolean;
   /** Public token facts (ticker, contract, links) read on the server. */
   token: PublicToken;
-  /** Debug-only render overrides from the URL, e.g. ?debug&bloom=0&dpr=1 */
+  /** Page URL parameters: ?preview=<key>, and render overrides with ?debug. */
   overrides?: URLSearchParams;
 }
 
-export function start(opts: StartOptions) {
-  const brand = opts.token;
+export async function start(opts: StartOptions) {
   if (started) return;
   started = true;
+  const brand = opts.token;
 
   const loading = $("loading");
   const fail = (msg: string) => {
@@ -108,23 +114,29 @@ export function start(opts: StartOptions) {
   }, 25000);
 
   /* ================= data ================= */
-  const sys = generateDemoSystem(Date.now());
-  const holders = sys.holders as Body[];
-  const N = holders.length;
-  const mcap = DEMO.mcap;
-  const tierIdx = starTierIndex(mcap);
-  const tier = STAR_TIERS[tierIdx]!;
-  const info: SystemInfo = {
+  const supabase =
+    process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+      ? { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY }
+      : null;
+  const { source, data: first } = await pickSource({
+    preview: opts.overrides?.get("preview") ?? null,
+    supabase,
+  });
+  let star: StarInfo = first.star;
+  const info = (): SystemInfo => ({
     ticker: brand.ticker,
     contract: brand.contract,
-    mcap,
-    supply: DEMO.supply,
-    launch: DEMO.launch,
-    count: N,
-    tierIndex: tierIdx,
-  };
+    mcap: star.mcap,
+    count: bodies.length,
+    tierIndex: star.tier,
+    ...(source.live ? {} : { supply: DEMO.supply, launch: DEMO.launch }),
+  });
+  // The demo badge goes away with live data.
+  if (source.live) document.querySelector(".top .demo")?.remove();
   /** Shared clock: orbital angles depend on wall time so every visitor sees the same sky. */
   const missionSeconds = () => (Date.now() - DEMO.launch) / 1000;
+  /** Mission time in the header counts from the launch (the demo date before it). */
+  const missionStart = brand.launchedAt ?? DEMO.launch;
 
   /* ================= quality ================= */
   let pref: QualityPref = loadPref();
@@ -277,17 +289,18 @@ export function start(opts: StartOptions) {
 
   /* ================= star ================= */
   const STAR_R = 12;
+  const tier0 = STAR_TIERS[star.tier]!;
   const starMat = new THREE.ShaderMaterial({
     vertexShader: SH.PLANET_VS,
     fragmentShader: SH.STAR_FS,
     uniforms: {
       uTime: { value: 0 },
-      uCore: { value: vec3(tier.core) },
-      uEdge: { value: vec3(tier.edge) },
+      uCore: { value: vec3(tier0.core) },
+      uEdge: { value: vec3(tier0.edge) },
     },
   });
-  const star = new THREE.Mesh(new THREE.SphereGeometry(STAR_R, 96, 64), starMat);
-  scene.add(star);
+  const starMesh = new THREE.Mesh(new THREE.SphereGeometry(STAR_R, 96, 64), starMat);
+  scene.add(starMesh);
   function glowTex(stops: [number, string][]) {
     const c = document.createElement("canvas");
     c.width = c.height = 256;
@@ -309,7 +322,7 @@ export function start(opts: StartOptions) {
         [0.6, "rgba(255,255,255,.03)"],
         [1, "rgba(255,255,255,0)"],
       ]),
-      color: tier.glow,
+      color: tier0.glow,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       transparent: true,
@@ -318,7 +331,17 @@ export function start(opts: StartOptions) {
   corona.scale.setScalar(STAR_R * 6.5);
   corona.material.opacity = 0.85;
   scene.add(corona);
-  sunLight.color.set(tier.glow).lerp(new THREE.Color(0xffffff), 0.6);
+  /** The star's class follows the market cap. */
+  function applyStar() {
+    const tier = STAR_TIERS[star.tier] ?? tier0;
+    starMat.uniforms.uCore!.value = vec3(tier.core);
+    starMat.uniforms.uEdge!.value = vec3(tier.edge);
+    corona.material.color.set(tier.glow);
+    sunLight.color.set(tier.glow).lerp(new THREE.Color(0xffffff), 0.6);
+    $("sMcap").textContent = money(star.mcap);
+    $("sHolders").textContent = fmt(bodies.length);
+    $("sClass").textContent = `${tier.cls} · ${tier.name}`;
+  }
 
   /* ================= planets ================= */
   const GAS = [
@@ -389,14 +412,62 @@ export function start(opts: StartOptions) {
   const orbitMat = lineMat(0xffffff, 0.055);
   const orbitMatHi = lineMat(0xfc3d21, 0.7);
   const orbitMatHov = lineMat(0xffffff, 0.3);
-  const planets: Body[] = [];
-  const asteroids: Body[] = [];
   const tmpV = new THREE.Vector3();
+  const astGeo = (() => {
+    const g = new THREE.IcosahedronGeometry(1, 1);
+    const p = g.attributes.position!;
+    const r = mulberry32(7);
+    for (let i = 0; i < p.count; i++) {
+      tmpV.fromBufferAttribute(p, i);
+      tmpV.multiplyScalar(0.75 + r() * 0.45);
+      p.setXYZ(i, tmpV.x, tmpV.y, tmpV.z);
+    }
+    g.computeVertexNormals();
+    return g;
+  })();
+  const astMat = new THREE.MeshStandardMaterial({
+    color: 0x8a8178,
+    roughness: 1,
+    metalness: 0,
+    flatShading: true,
+  });
+  const astDummy = new THREE.Object3D();
+  const dotTex = glowTex([
+    [0, "rgba(255,255,255,1)"],
+    [0.35, "rgba(255,255,255,.8)"],
+    [1, "rgba(255,255,255,0)"],
+  ]);
+  const dotMat = new THREE.PointsMaterial({
+    size: 4,
+    map: dotTex,
+    sizeAttenuation: false,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+  });
+  const debrisMat = new THREE.PointsMaterial({
+    color: 0x9aa9b8,
+    size: 0.35,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.8,
+    depthWrite: false,
+  });
+
+  let bodies: Body[] = [];
+  let planets: Body[] = [];
+  let asteroids: Body[] = [];
+  let astMesh: THREE.InstancedMesh | null = null;
+  let dots: THREE.Points | null = null;
+  let debris: { d: Debris; pts: THREE.Points; q: THREE.Quaternion; ang0: number; speed: number }[] =
+    [];
+  const byWallet = new Map<string, Body>();
 
   function syncVisual(h: Body) {
     const u = h.mesh?.material.uniforms;
     if (!u) return;
-    const v = visualOf(h.S, h.cls);
+    const v = h.visual;
     u.uLava!.value = v.lava;
     u.uWater!.value = v.water;
     u.uBio!.value = v.bio;
@@ -407,18 +478,11 @@ export function start(opts: StartOptions) {
     if (h.atmoMat && v.atmo !== null) h.atmoMat.uniforms.uStrength!.value = v.atmo;
   }
 
-  for (const h of holders) {
-    h.q = new THREE.Quaternion().setFromEuler(new THREE.Euler(h.incl, h.node, 0, "YXZ"));
-    h.pos = new THREE.Vector3();
-    h.speed = orbitSpeed(h.orbit);
-    h.spin = 0;
-    if (h.cls === "asteroid") {
-      asteroids.push(h);
-      continue;
-    }
-    const r = rngFor(h.addr + "v");
+  /** Meshes are built at unit size and the group is scaled, so sizes can ease. */
+  function buildPlanet(h: Body) {
+    const r = rngFor(h.wallet + "v");
     const group = new THREE.Group();
-    const type = h.cls === "gas" || h.cls === "super" ? 0 : h.cls === "ice" ? 1 : 2;
+    const type = h.nature === "gas" || h.nature === "super" ? 0 : h.nature === "ice" ? 1 : 2;
     const pal =
       type === 0
         ? GAS[Math.floor(r() * GAS.length)]!
@@ -431,7 +495,6 @@ export function start(opts: StartOptions) {
             ];
     const tint = [0.85 + r() * 0.3, 0.8 + r() * 0.25, 0.75 + r() * 0.3];
     const storm = new THREE.Vector3(r() - 0.5, (r() - 0.5) * 0.8, r() - 0.5).normalize();
-    const counted = h.sells.filter((s) => s.counted).length;
     const mat = new THREE.ShaderMaterial({
       vertexShader: SH.PLANET_VS,
       fragmentShader: SH.PLANET_FS,
@@ -442,7 +505,9 @@ export function start(opts: StartOptions) {
         uC2: { value: vec3(pal[1]!) },
         uC3: { value: vec3(pal[2]!) },
         uBands: { value: type === 0 ? 14 + r() * 12 : 6 + r() * 5 },
-        uCrater: { value: type === 2 ? (counted ? clamp(0.2 + counted * 0.15, 0, 0.7) : 0.06) : 0 },
+        uCrater: {
+          value: type === 2 ? (h.craters ? clamp(0.2 + h.craters * 0.15, 0, 0.7) : 0.06) : 0,
+        },
         uTime: { value: 0 },
         uStorm: { value: storm },
         uStormOn: { value: type === 0 && r() > 0.35 ? 1 : 0 },
@@ -460,7 +525,6 @@ export function start(opts: StartOptions) {
       },
     });
     const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>(geoLo, mat);
-    mesh.scale.setScalar(h.size);
     const tilt = new THREE.Group();
     tilt.rotation.z = (r() - 0.5) * 0.6;
     tilt.add(mesh);
@@ -469,7 +533,7 @@ export function start(opts: StartOptions) {
       vertexShader: SH.ATMO_VS,
       fragmentShader: SH.ATMO_FS,
       uniforms: {
-        uColor: { value: vec3(ATMO_COL[h.cls]!) },
+        uColor: { value: vec3(ATMO_COL[h.nature] ?? ATMO_COL.rocky!) },
         uPower: { value: type === 2 ? 3.4 : 3.6 },
         uStrength: { value: type === 2 ? 0 : 0.8 },
         uFade: { value: 1 },
@@ -479,13 +543,13 @@ export function start(opts: StartOptions) {
       depthWrite: false,
     });
     const atmo = new THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>(geoLo, am);
-    atmo.scale.setScalar(h.size * (type === 2 ? 1.035 : 1.025));
+    atmo.scale.setScalar(type === 2 ? 1.035 : 1.025);
     tilt.add(atmo);
     h.atmoMat = am;
     h.atmo = atmo;
     if (h.rings) {
-      const inR = h.size * 1.45,
-        outR = h.size * (type === 2 ? 2.0 : 2.5);
+      const inR = 1.45,
+        outR = type === 2 ? 2.0 : 2.5;
       const rg = new THREE.RingGeometry(inR, outR, 160, 1);
       const rc =
         type === 0 ? [0.88, 0.8, 0.66] : type === 1 ? [0.7, 0.8, 0.86] : [0.75, 0.72, 0.68];
@@ -510,15 +574,15 @@ export function start(opts: StartOptions) {
       const ring = new THREE.Mesh(rg, rm);
       ring.rotation.x = -Math.PI / 2 + 0.08;
       tilt.add(ring);
+      h.ringMat = rm;
     }
-    const era = h.S.era;
-    if (era >= 5) {
-      const n = era === 5 ? 8 : era === 6 ? 20 : 34;
+    if (h.era >= 5) {
+      const n = h.era === 5 ? 8 : h.era === 6 ? 20 : 34;
       const pts: number[] = [];
       for (let i = 0; i < n; i++) {
         const a = r() * TAU,
           inc = (r() - 0.5) * 1.2,
-          d = h.size * (1.35 + r() * 0.9);
+          d = 1.35 + r() * 0.9;
         pts.push(Math.cos(a) * d, Math.sin(inc) * d * 0.5, Math.sin(a) * d);
       }
       const sg = new THREE.BufferGeometry();
@@ -539,14 +603,15 @@ export function start(opts: StartOptions) {
       tilt.add(sats);
       h.sats = sats;
     }
-    if (era >= 7) {
+    if (h.era >= 7) {
       const ringWorld = new THREE.Mesh(
-        new THREE.TorusGeometry(h.size * 1.9, h.size * 0.018, 8, 200),
+        new THREE.TorusGeometry(1.9, 0.018, 8, 200),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.3, 0.95) }),
       );
       ringWorld.rotation.x = Math.PI / 2 + 0.25;
       tilt.add(ringWorld);
     }
+    group.scale.setScalar(h.size);
     scene.add(group);
     const orbit = new THREE.LineLoop(orbitGeo, orbitMat);
     orbit.scale.setScalar(h.orbit);
@@ -557,78 +622,155 @@ export function start(opts: StartOptions) {
     h.mesh = mesh;
     h.orbitLine = orbit;
     h.spin = (0.05 + r() * 0.12) * (r() < 0.1 ? -1 : 1);
-    planets.push(h);
     syncVisual(h);
   }
-  const astGeo = (() => {
-    const g = new THREE.IcosahedronGeometry(1, 1);
-    const p = g.attributes.position!;
-    const r = mulberry32(7);
-    for (let i = 0; i < p.count; i++) {
-      tmpV.fromBufferAttribute(p, i);
-      tmpV.multiplyScalar(0.75 + r() * 0.45);
-      p.setXYZ(i, tmpV.x, tmpV.y, tmpV.z);
+
+  function disposeGroup(o: THREE.Object3D) {
+    o.traverse((c) => {
+      const m = c as THREE.Mesh;
+      if (m.geometry && ![geoHi, geoMid, geoLo, orbitGeo, astGeo].includes(m.geometry))
+        m.geometry.dispose();
+      const mats = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : [];
+      for (const mat of mats)
+        if (![orbitMat, orbitMatHi, orbitMatHov, astMat, dotMat, debrisMat].includes(mat as never))
+          (mat as THREE.Material).dispose();
+    });
+    scene.remove(o);
+  }
+
+  /** What forces a planet to be rebuilt (anything else is updated in place). */
+  const shapeKey = (p: ScenePlanet) =>
+    `${p.nature}|${p.rings ? 1 : 0}|${p.era >= 7 ? 2 : p.era >= 5 ? (p.era === 5 ? 1 : 3) : 0}|${p.craters}`;
+
+  function makeBody(p: ScenePlanet, old?: Body): Body {
+    const o = orbitOf(p.wallet, 1, 2); // inclination, node and phase depend only on the wallet
+    return {
+      ...p,
+      incl: o.incl,
+      node: o.node,
+      ang0: o.ang0,
+      q: new THREE.Quaternion().setFromEuler(new THREE.Euler(o.incl, o.node, 0, "YXZ")),
+      pos: old?.pos ?? new THREE.Vector3(),
+      speed: orbitSpeed(p.orbit),
+      size: old?.size ?? sizeOf(p.rank),
+      spin: 0,
+    };
+  }
+
+  /** Build or update the world from scene data. Unchanged planets keep their meshes. */
+  function setWorld(data: SceneData) {
+    const prev = new Map(bodies.map((b) => [b.wallet, b]));
+    const next: Body[] = [];
+    for (const p of data.planets) {
+      const old = prev.get(p.wallet);
+      if (old && shapeKey(old) === shapeKey(p) && old.orbit === p.orbit) {
+        Object.assign(old, p);
+        syncVisual(old);
+        if (old.orbitLine)
+          old.orbitLine.visible = old === selected || old === hovered || old.rank <= 50;
+        next.push(old);
+        prev.delete(p.wallet);
+      } else {
+        if (old) {
+          if (old.group) disposeGroup(old.group);
+          if (old.orbitLine) scene.remove(old.orbitLine);
+          prev.delete(p.wallet);
+        }
+        const b = makeBody(p, old);
+        if (b.nature !== "asteroid") buildPlanet(b);
+        next.push(b);
+      }
     }
-    g.computeVertexNormals();
-    return g;
-  })();
-  const astMesh = new THREE.InstancedMesh(
-    astGeo,
-    new THREE.MeshStandardMaterial({
-      color: 0x8a8178,
-      roughness: 1,
-      metalness: 0,
-      flatShading: true,
-    }),
-    asteroids.length,
-  );
-  astMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  scene.add(astMesh);
-  asteroids.forEach((h, i) => {
-    const r = rngFor(h.addr + "a");
-    h.astRot = new THREE.Euler(r() * TAU, r() * TAU, r() * TAU);
-    h.astScale = new THREE.Vector3(
-      h.size * (0.8 + r() * 0.5),
-      h.size * (0.6 + r() * 0.4),
-      h.size * (0.7 + r() * 0.5),
+    // Planets that are gone (sold out): remove their meshes.
+    for (const gone of prev.values()) {
+      if (gone.group) disposeGroup(gone.group);
+      if (gone.orbitLine) scene.remove(gone.orbitLine);
+      if (selected === gone) selected = null;
+      if (hovered === gone) hovered = null;
+    }
+    // Keep selection objects pointing at the live bodies.
+    if (selected) selected = next.find((b) => b.wallet === selected!.wallet) ?? null;
+    if (hovered) hovered = next.find((b) => b.wallet === hovered!.wallet) ?? null;
+    if (follow) follow = selected;
+    bodies = next;
+    byWallet.clear();
+    for (const b of bodies) byWallet.set(b.wallet, b);
+    planets = bodies.filter((b) => b.nature !== "asteroid");
+    asteroids = bodies.filter((b) => b.nature === "asteroid");
+    // Asteroids: one instanced mesh.
+    if (astMesh) {
+      scene.remove(astMesh);
+      astMesh.dispose();
+    }
+    astMesh = new THREE.InstancedMesh(astGeo, astMat, Math.max(1, asteroids.length));
+    astMesh.count = asteroids.length;
+    astMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(astMesh);
+    asteroids.forEach((h, i) => {
+      const r = rngFor(h.wallet + "a");
+      h.astRot = h.astRot ?? new THREE.Euler(r() * TAU, r() * TAU, r() * TAU);
+      if (!h.astShape) {
+        h.astShape = new THREE.Vector3(0.8 + r() * 0.5, 0.6 + r() * 0.4, 0.7 + r() * 0.5);
+        h.astSpin = (r() - 0.5) * 1.5;
+      }
+      h.idx = i;
+    });
+    // Far-away dots for every body.
+    if (dots) {
+      scene.remove(dots);
+      dots.geometry.dispose();
+    }
+    const dotGeo = new THREE.BufferGeometry();
+    dotGeo.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(new Float32Array(bodies.length * 3), 3),
     );
-    h.astSpin = (r() - 0.5) * 1.5;
-    h.idx = i;
-  });
-  const astDummy = new THREE.Object3D();
-  const dotGeo = new THREE.BufferGeometry();
-  dotGeo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(N * 3), 3));
-  const dotCol = new Float32Array(N * 3);
-  holders.forEach((h, i) => {
-    const c =
-      h.cls === "asteroid"
-        ? [0.45, 0.43, 0.42]
-        : h.cls === "rocky"
-          ? [0.6, 0.7, 0.8]
-          : h.cls === "ice"
-            ? [0.55, 0.75, 1]
-            : [1, 0.85, 0.6];
-    dotCol.set(c, i * 3);
-  });
-  dotGeo.setAttribute("color", new THREE.Float32BufferAttribute(dotCol, 3));
-  const dotTex = glowTex([
-    [0, "rgba(255,255,255,1)"],
-    [0.35, "rgba(255,255,255,.8)"],
-    [1, "rgba(255,255,255,0)"],
-  ]);
-  const dots = new THREE.Points(
-    dotGeo,
-    new THREE.PointsMaterial({
-      size: 4,
-      map: dotTex,
-      sizeAttenuation: false,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.4,
-      depthWrite: false,
-    }),
-  );
-  scene.add(dots);
+    const dotCol = new Float32Array(bodies.length * 3);
+    bodies.forEach((h, i) => {
+      const c =
+        h.nature === "asteroid"
+          ? [0.45, 0.43, 0.42]
+          : h.nature === "rocky"
+            ? [0.6, 0.7, 0.8]
+            : h.nature === "ice"
+              ? [0.55, 0.75, 1]
+              : [1, 0.85, 0.6];
+      dotCol.set(c, i * 3);
+    });
+    dotGeo.setAttribute("color", new THREE.Float32BufferAttribute(dotCol, 3));
+    dots = new THREE.Points(dotGeo, dotMat);
+    scene.add(dots);
+    setDebris(data.debris);
+  }
+
+  /** Debris of planets destroyed in the last 24 hours, on their old orbits. */
+  function setDebris(list: Debris[]) {
+    for (const d of debris) {
+      scene.remove(d.pts);
+      d.pts.geometry.dispose();
+    }
+    debris = list.map((d) => {
+      const r = rngFor(d.wallet + "debris");
+      const pts: number[] = [];
+      for (let i = 0; i < 60; i++) {
+        const a = r() * TAU,
+          rad = 0.4 + r() * 2.2;
+        pts.push(Math.cos(a) * rad, (r() - 0.5) * 0.8, Math.sin(a) * rad);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+      const p = new THREE.Points(g, debrisMat.clone());
+      scene.add(p);
+      const o = orbitOf(d.wallet, 1, 2);
+      return {
+        d,
+        pts: p,
+        q: new THREE.Quaternion().setFromEuler(new THREE.Euler(o.incl, o.node, 0, "YXZ")),
+        ang0: o.ang0,
+        speed: orbitSpeed(d.orbit),
+      };
+    });
+  }
 
   /* ================= post ================= */
   const composer = new EffectComposer(renderer);
@@ -703,7 +845,7 @@ export function start(opts: StartOptions) {
     return ((r / d) * (OH / 2)) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   }
   function* screenBodies(): Generator<ScreenBody<Body | "star">> {
-    for (const h of holders) {
+    for (const h of bodies) {
       const s = project(h.pos);
       const disk = screenR(h.pos, h.size);
       yield {
@@ -712,12 +854,12 @@ export function start(opts: StartOptions) {
         y: s.y,
         z: s.z,
         disk,
-        touch: Math.max(disk * 1.2, h.cls === "asteroid" ? 6 : 9),
+        touch: Math.max(disk * 1.2, h.nature === "asteroid" ? 6 : 9),
         camDist: camera.position.distanceTo(h.pos),
       };
     }
-    const s = project(star.position);
-    const disk = screenR(star.position, STAR_R);
+    const s = project(starMesh.position);
+    const disk = screenR(starMesh.position, STAR_R);
     yield {
       item: "star",
       x: s.x,
@@ -725,7 +867,7 @@ export function start(opts: StartOptions) {
       z: s.z,
       disk,
       touch: Math.max(disk, 14),
-      camDist: camera.position.distanceTo(star.position),
+      camDist: camera.position.distanceTo(starMesh.position),
     };
   }
   const pickAt = (x: number, y: number) => pickBody(x, y, screenBodies());
@@ -749,9 +891,10 @@ export function start(opts: StartOptions) {
   let tipTimer = 0;
   let tipXY = { x: 0, y: 0 };
   function tipHTML(p: Body | "star") {
+    const tier = STAR_TIERS[star.tier] ?? tier0;
     return p === "star"
-      ? `<b>$${esc(brand.ticker)}</b><small>${tier.name} · ${money(mcap)}</small>`
-      : `<b>${esc(p.name)}</b><small>#${p.rank} · ${t.cls[p.cls]} · ${eraLabel(p)}</small>`;
+      ? `<b>$${esc(brand.ticker)}</b><small>${tier.name} · ${money(star.mcap)}</small>`
+      : `<b>${esc(p.name)}</b><small>#${p.rank} · ${t.cls[p.cls]} · ${esc(p.eraLabel)}</small>`;
   }
   function hideTip() {
     clearTimeout(tipTimer);
@@ -773,7 +916,7 @@ export function start(opts: StartOptions) {
       const s = project(hovered.pos);
       const rr = Math.max(
         screenR(hovered.pos, hovered.size) * 1.2,
-        hovered.cls === "asteroid" ? 6 : 9,
+        hovered.nature === "asteroid" ? 6 : 9,
       );
       if (s.z <= 1 && Math.hypot(s.x - e.clientX, s.y - e.clientY) < rr * 1.5) p = hovered;
     }
@@ -848,17 +991,53 @@ export function start(opts: StartOptions) {
     });
     follow = null;
   }
-  let newsShown = 8;
   function setUrl(path: string) {
-    if (location.pathname !== path) history.replaceState(history.state, "", path);
+    if (location.pathname !== path) history.replaceState(history.state, "", path + location.search);
   }
+
+  /* ================= mission page ================= */
+  /** Mission page of the selected planet: server card plus news pages loaded so far. */
+  let card: PlanetCard | null = null;
+  let news: NewsItem[] = [];
+  let nextNews: string | null = null;
+  let cardRequest = 0;
+
+  async function loadCard(h: Body, keepScroll: boolean) {
+    const req = ++cardRequest;
+    let r: CardResult;
+    try {
+      r = await source.card(h.wallet);
+    } catch {
+      return;
+    }
+    if (req !== cardRequest || selected?.wallet !== h.wallet) return;
+    if (r.status === "alive") {
+      const fresh = card?.wallet !== h.wallet;
+      card = r.card;
+      // Keep pages the visitor already opened; put the newest first.
+      const seen = new Set(r.card.news.map((n) => n.id));
+      news = fresh ? r.card.news : [...r.card.news, ...news.filter((n) => !seen.has(n.id))];
+      if (fresh)
+        nextNews = r.card.news.length < r.card.newsTotal ? (r.card.news.at(-1)?.id ?? null) : null;
+      renderPanel(!keepScroll);
+    } else if (r.status === "dead") {
+      pBody.innerHTML = deadPanelHTML(r);
+      bindPanel();
+    }
+  }
+
   function focus(h: Body, close = false) {
     hideTip();
-    if (selected !== h) newsShown = 8;
+    if (selected?.wallet !== h.wallet) {
+      card = null;
+      news = [];
+      nextNews = null;
+    }
     setSelected(h);
     starPanel = false;
     renderPanel(true);
-    setUrl(`/planet/${h.addr}`);
+    void loadCard(h, false);
+    setUrl(`/planet/${h.wallet}`);
     controls.minDistance = h.size * 1.6;
     const k = innerWidth < 760 ? 1.8 : 1;
     flyTo(() => h.pos, h.size * (close ? 2.8 : 7) * k, close ? 1.2 : 1.9);
@@ -870,7 +1049,7 @@ export function start(opts: StartOptions) {
     renderPanel(true);
     setUrl("/");
     controls.minDistance = STAR_R * 1.5;
-    flyTo(() => star.position, STAR_R * 7, 1.6);
+    flyTo(() => starMesh.position, STAR_R * 7, 1.6);
     fly.follow = null;
   }
   function overview() {
@@ -891,7 +1070,6 @@ export function start(opts: StartOptions) {
   };
   $("zFit").onclick = overview;
 
-  /* ================= panel ================= */
   function closePanel() {
     panel.hidden = true;
     applyOffset();
@@ -901,30 +1079,13 @@ export function start(opts: StartOptions) {
     follow = null;
     fly.follow = null;
     controls.minDistance = 8;
+    card = null;
     setUrl("/");
   }
   addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !panel.hidden) closePanel();
   });
-  function renderPanel(reset = false) {
-    const keep = pBody.scrollTop;
-    const wasHidden = panel.hidden;
-    panel.hidden = false;
-    document.body.classList.add("panel-open");
-    if (wasHidden) requestAnimationFrame(applyOffset);
-    applyOffset();
-    if (starPanel) pBody.innerHTML = starPanelHTML(info);
-    else if (selected) {
-      const h = selected;
-      pBody.innerHTML = planetPanelHTML(h, info, newsShown);
-      $("closeUp").onclick = () => focus(h, true);
-      const mn = document.getElementById("moreNews");
-      if (mn)
-        mn.onclick = () => {
-          newsShown += 12;
-          renderPanel();
-        };
-    }
+  function bindPanel() {
     $("pBack").onclick = closePanel;
     pBody.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach(
       (b) =>
@@ -944,71 +1105,65 @@ export function start(opts: StartOptions) {
           setTimeout(() => (b.textContent = label), 1500);
         }),
     );
+  }
+  function renderPanel(reset = false) {
+    const keep = pBody.scrollTop;
+    const wasHidden = panel.hidden;
+    panel.hidden = false;
+    document.body.classList.add("panel-open");
+    if (wasHidden) requestAnimationFrame(applyOffset);
+    applyOffset();
+    if (starPanel) pBody.innerHTML = starPanelHTML(info());
+    else if (selected) {
+      const h = selected;
+      if (card && card.wallet === h.wallet) {
+        pBody.innerHTML = planetPanelHTML(card, news, !!nextNews, { ticker: brand.ticker });
+        $("closeUp").onclick = () => focus(h, true);
+        const mn = document.getElementById("moreNews");
+        if (mn)
+          mn.onclick = async () => {
+            if (!nextNews) return;
+            mn.setAttribute("disabled", "");
+            const page = await source.moreNews(h.wallet, nextNews);
+            news = [...news, ...page.items];
+            nextNews = page.next;
+            renderPanel();
+          };
+      } else {
+        // While the card loads: name and position are known already.
+        pBody.innerHTML = `<button class="back" id="pBack">← ${t.back}</button><header class="m-head"><div class="crumbs">${t.system} / ${t.clsPl[h.cls]} / #${h.rank}</div><h2>${esc(h.name)}</h2><div class="status"><span class="live"></span>${esc(h.eraLabel)}</div></header>`;
+      }
+    }
+    bindPanel();
     pBody.scrollTop = reset ? 0 : keep;
     if (reset) $("pBack").focus({ preventScroll: true });
   }
 
-  /* ================= global feed + live ticks ================= */
+  /* ================= global feed ================= */
   const gfeedEl = $("gfeed");
-  let gitems: { h: Body; e: SimEvent; at: number }[] = [];
-  function gWorthy(h: Body, e: SimEvent) {
-    const k = KIND[e.k];
-    if (k === "neutral") return e.k === "election" || e.k === "neighbor";
-    if (h.cls === "asteroid") return k === "mile" || k === "rare";
-    return true;
-  }
+  let gitems: FeedItem[] = [];
   function gfeedRender() {
     const now = Date.now();
     gfeedEl.innerHTML = gitems
       .slice(0, 4)
       .map((g, i) => {
-        const k = KIND[g.e.k];
-        const [hd] = splitNews(newsOf(g.e, g.h));
-        return `<li><button data-i="${i}"><span class="meta"><span class="tag t-${k}">${TAG[k]}</span><time>${agoText(g.h, g.e.day, now)}</time></span><span class="hl">${esc(hd)}</span><span class="pl">${esc(g.h.name)} · #${g.h.rank} · ${t.cls[g.h.cls]}</span></button></li>`;
+        const k = KIND[g.kind];
+        const [hd] = splitNews(g.text);
+        const p = byWallet.get(g.wallet);
+        const where = p
+          ? `${esc(p.name)} · #${p.rank} · ${t.cls[p.cls]}`
+          : `${esc(g.planet.name)}${g.planet.rank ? ` · #${g.planet.rank}` : ""}`;
+        return `<li><button data-i="${i}"><span class="meta"><span class="tag t-${k}">${TAG[k]}</span><time>${agoText(g.at, now)}</time></span><span class="hl">${esc(hd)}</span><span class="pl">${where}</span></button></li>`;
       })
       .join("");
-    gfeedEl
-      .querySelectorAll<HTMLButtonElement>("button")
-      .forEach((b) => (b.onclick = () => focus(gitems[+b.dataset.i!]!.h)));
+    gfeedEl.querySelectorAll<HTMLButtonElement>("button").forEach(
+      (b) =>
+        (b.onclick = () => {
+          const h = byWallet.get(gitems[+b.dataset.i!]!.wallet);
+          if (h) focus(h);
+        }),
+    );
   }
-  {
-    const cut = Date.now() - 30 * 3600000;
-    for (const h of holders)
-      for (const e of h.S.news) {
-        const at = h.start + e.day * DAY_MS;
-        if (at >= cut && gWorthy(h, e)) gitems.push({ h, e, at });
-      }
-    gitems.sort((a, b) => b.at - a.at);
-    gitems = gitems.slice(0, 12);
-  }
-  // Demo only: the browser advances the demo simulation. In production the
-  // server runs ticks and the site receives events over Realtime (stage 5).
-  setInterval(() => {
-    const now = Date.now();
-    let changed = false;
-    for (const h of holders) {
-      const S = h.S;
-      const due = h.start + S.k * TICK * DAY_MS;
-      if (now >= due) {
-        const before = S.news.length;
-        step(S, h, S.k * TICK, sys.ctx);
-        S.k++;
-        h.days = (now - h.start) / DAY_MS;
-        syncVisual(h);
-        for (let i = before; i < S.news.length; i++) {
-          const e = S.news[i]!;
-          if (!gWorthy(h, e)) continue;
-          gitems.unshift({ h, e, at: h.start + e.day * DAY_MS });
-          changed = true;
-        }
-        if (selected === h && !starPanel && S.news.length > before) renderPanel();
-      }
-    }
-    if (changed) {
-      gitems = gitems.slice(0, 12);
-      gfeedRender();
-    }
-  }, 1000);
   setInterval(() => {
     if (gitems.length) gfeedRender();
   }, 60000);
@@ -1019,23 +1174,25 @@ export function start(opts: StartOptions) {
   function helpDefault(err = "") {
     help.innerHTML = `${err ? `<span class="err">${esc(err)}</span>` : ""}<button type="button" class="rnd">${t.random}</button><button type="button" id="topBtn">${t.top1}</button>`;
     help.querySelector<HTMLButtonElement>(".rnd")!.onclick = () => {
-      const pool = planets.filter((h) => h.S.life || h.rank <= 200);
-      const h = pool[Math.floor(Math.random() * pool.length)]!;
-      searchInput.value = h.addr;
+      const pool = planets.filter((h) => h.era >= 2 || h.rank <= 200);
+      const h = pool[Math.floor(Math.random() * pool.length)];
+      if (!h) return;
+      searchInput.value = h.wallet;
       focus(h);
     };
     $("topBtn").onclick = () => {
-      const h = holders.find((x) => x.rank === 1)!;
-      searchInput.value = h.addr;
+      const h = bodies.find((x) => x.rank === 1);
+      if (!h) return;
+      searchInput.value = h.wallet;
       focus(h);
     };
   }
-  function findHolder(q: string): Body | undefined {
+  function findBody(q: string): Body | undefined {
     const ql = q.toLowerCase();
-    let h = holders.find((x) => x.addr === q) || holders.find((x) => x.name.toLowerCase() === ql);
+    let h = byWallet.get(q) || bodies.find((x) => x.name.toLowerCase() === ql);
     if (!h && q.length >= 4)
-      h = holders.find(
-        (x) => x.addr.toLowerCase().includes(ql) || x.name.toLowerCase().includes(ql),
+      h = bodies.find(
+        (x) => x.wallet.toLowerCase().includes(ql) || x.name.toLowerCase().includes(ql),
       );
     return h;
   }
@@ -1046,24 +1203,19 @@ export function start(opts: StartOptions) {
       helpDefault();
       return;
     }
-    const h = findHolder(q);
+    const h = findBody(q);
     if (h) {
       helpDefault();
       focus(h);
     } else helpDefault(t.notFound);
   });
-  helpDefault();
-  gfeedRender();
 
   /* ================= HUD ================= */
-  $("sMcap").textContent = money(mcap);
-  $("sHolders").textContent = fmt(N);
-  $("sClass").textContent = `${tier.cls} · ${tier.name}`;
   const pad2 = (n: number) => String(n).padStart(2, "0");
   function tele() {
     const n = new Date();
     $("tUtc").textContent = n.toISOString().slice(11, 19);
-    const ms = Math.max(0, n.getTime() - DEMO.launch);
+    const ms = Math.max(0, n.getTime() - missionStart);
     const d = Math.floor(ms / DAY_MS),
       hh = Math.floor((ms % DAY_MS) / 3600000),
       mm = Math.floor((ms % 3600000) / 60000),
@@ -1076,6 +1228,39 @@ export function start(opts: StartOptions) {
     e.preventDefault();
     overview();
   };
+
+  /* ================= world + live updates ================= */
+  setWorld(first);
+  applyStar();
+  helpDefault();
+  void source.feed().then((items) => {
+    gitems = items;
+    gfeedRender();
+  });
+  let refreshTimer = 0;
+  source.start({
+    onNews(item) {
+      gitems = [item, ...gitems.filter((g) => g.id !== item.id)].slice(0, 12);
+      gfeedRender();
+    },
+    onPlanetEvent(wallet) {
+      // The open mission page refreshes shortly after its planet changes.
+      if (selected?.wallet !== wallet || refreshTimer) return;
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = 0;
+        if (selected?.wallet === wallet) void loadCard(selected, true);
+      }, 1500);
+    },
+    onScene(data) {
+      star = data.star;
+      setWorld(data);
+      applyStar();
+    },
+    onStar(s) {
+      star = { ...star, ...s };
+      applyStar();
+    },
+  });
 
   /* ================= quality switch ================= */
   const qBtn = $<HTMLButtonElement>("qBtn");
@@ -1120,9 +1305,14 @@ export function start(opts: StartOptions) {
     (window as unknown as { __orbit: unknown }).__orbit = {
       focus,
       openStar,
-      holders,
+      get bodies() {
+        return bodies;
+      },
+      get planets() {
+        return planets;
+      },
+      live: source.live,
       camera,
-      planets,
       renderer,
       scene,
       controls,
@@ -1141,15 +1331,25 @@ export function start(opts: StartOptions) {
   let raf = 0;
 
   if (opts.initialWallet) {
-    const h = holders.find((x) => x.addr === opts.initialWallet);
+    const h = byWallet.get(opts.initialWallet);
     if (h) {
       introDone = true;
       camera.position.copy(OVERVIEW_POS);
       focus(h);
     } else {
-      searchInput.value = opts.initialWallet;
-      helpDefault(t.notFound);
-      setUrl("/");
+      // Maybe a planet that was destroyed: the server still knows its story.
+      const r = await source.card(opts.initialWallet).catch(() => ({ status: "none" }) as const);
+      if (r.status === "dead") {
+        panel.hidden = false;
+        document.body.classList.add("panel-open");
+        pBody.innerHTML = deadPanelHTML(r);
+        bindPanel();
+        applyOffset();
+      } else {
+        searchInput.value = opts.initialWallet;
+        helpDefault(t.notFound);
+        setUrl("/");
+      }
     }
   }
 
@@ -1161,22 +1361,28 @@ export function start(opts: StartOptions) {
     starMat.uniforms.uTime!.value = T;
     nearStarsMat.uniforms.uTime!.value = T;
     const tSec = missionSeconds() * sp;
-    const pos = dotGeo.attributes.position!.array as Float32Array;
-    holders.forEach((h, i) => {
+    const pos = dots!.geometry.attributes.position!.array as Float32Array;
+    bodies.forEach((h, i) => {
       const ang = h.ang0 + h.speed * tSec;
       h.pos.set(Math.cos(ang) * h.orbit, 0, Math.sin(ang) * h.orbit).applyQuaternion(h.q);
       pos[i * 3] = h.pos.x;
       pos[i * 3 + 1] = h.pos.y;
       pos[i * 3 + 2] = h.pos.z;
+      // Size follows the rank smoothly.
+      const target = sizeOf(h.rank);
+      if (Math.abs(target - h.size) > 1e-4) h.size += (target - h.size) * Math.min(1, dt * 1.5);
     });
-    dotGeo.attributes.position!.needsUpdate = true;
+    dots!.geometry.attributes.position!.needsUpdate = true;
     const hiAllowed = Q.maxDetail === "hi";
     for (const h of planets) {
       h.group!.position.copy(h.pos);
+      h.group!.scale.setScalar(h.size);
       const px = screenR(h.pos, h.size);
       const u = h.mesh!.material.uniforms;
       u.uPx!.value = px;
       u.uTime!.value = T;
+      u.uSize!.value = h.size;
+      if (h.ringMat) h.ringMat.uniforms.uR!.value = h.size;
       const g = px > 70 && hiAllowed ? geoHi : px > 14 ? geoMid : geoLo;
       if (h.mesh!.geometry !== g) {
         h.mesh!.geometry = g;
@@ -1187,6 +1393,7 @@ export function start(opts: StartOptions) {
         const o = clamp((px - 8) / 30, 0, 1);
         h.sats.visible = o > 0;
         h.sats.material.opacity = 0.95 * o;
+        h.sats.material.size = Math.max(0.03, h.size * 0.022);
         h.sats.rotation.y += h.sats.userData.spin * dt * sp;
       }
       h.mesh!.rotation.y += h.spin * dt * sp;
@@ -1196,11 +1403,22 @@ export function start(opts: StartOptions) {
       h.astRot!.y += h.astSpin! * dt * 0.2 * sp;
       astDummy.position.copy(h.pos);
       astDummy.rotation.copy(h.astRot!);
-      astDummy.scale.copy(h.astScale!);
+      astDummy.scale.copy(h.astShape!).multiplyScalar(h.size);
       astDummy.updateMatrix();
-      astMesh.setMatrixAt(h.idx!, astDummy.matrix);
+      astMesh!.setMatrixAt(h.idx!, astDummy.matrix);
     }
-    astMesh.instanceMatrix.needsUpdate = true;
+    astMesh!.instanceMatrix.needsUpdate = true;
+    const now = Date.now();
+    for (const d of debris) {
+      const ang = d.ang0 + d.speed * tSec;
+      d.pts.position
+        .set(Math.cos(ang) * d.d.orbit, 0, Math.sin(ang) * d.d.orbit)
+        .applyQuaternion(d.q);
+      d.pts.rotation.y += dt * 0.05 * sp;
+      // Fades out over 24 hours.
+      (d.pts.material as THREE.PointsMaterial).opacity =
+        0.8 * clamp(1 - (now - d.d.endedAt) / DAY_MS, 0, 1);
+    }
     if (!introDone) {
       intro.t = Math.min(1, intro.t + dt / 3.2);
       camera.position.lerpVectors(intro.from, intro.to, ease(intro.t));
@@ -1243,7 +1461,7 @@ export function start(opts: StartOptions) {
       meterFrames++;
       meterTime += realDt;
       if (meterTime >= 0.5) {
-        meter.textContent = `${Math.round(meterFrames / meterTime)} FPS · ${quality.toUpperCase()} · DPR ${renderer.getPixelRatio()} · BLOOM ${bloom.enabled ? "ON" : "OFF"} · SKY ${Q.skyRes} · FILTER ${sanitizePass.enabled ? "ON" : "OFF"}`;
+        meter.textContent = `${Math.round(meterFrames / meterTime)} FPS · ${quality.toUpperCase()} · DPR ${renderer.getPixelRatio()} · BLOOM ${bloom.enabled ? "ON" : "OFF"} · SKY ${Q.skyRes} · FILTER ${sanitizePass.enabled ? "ON" : "OFF"} · ${source.live ? "LIVE" : "DEMO"}`;
         meterFrames = 0;
         meterTime = 0;
       }
@@ -1263,7 +1481,7 @@ export function start(opts: StartOptions) {
       list.push([h, s]);
     }
     for (const h of [selected, hovered]) {
-      if (h && h.cls === "asteroid") {
+      if (h && h.nature === "asteroid") {
         const s = project(h.pos);
         if (s.z < 1) list.push([h, s]);
       }

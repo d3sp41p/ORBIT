@@ -13,6 +13,8 @@ export interface PublicToken {
   buyUrl: string;
   xUrl: string;
   launched: boolean;
+  /** Launch time (ms) for the mission clock; null before launch. */
+  launchedAt: number | null;
   minHolding: number;
 }
 
@@ -23,6 +25,7 @@ export const fallbackToken = (): PublicToken => ({
   buyUrl: process.env.BUY_URL || "#",
   xUrl: process.env.X_URL || "#",
   launched: false,
+  launchedAt: null,
   minHolding: Number(process.env.MIN_HOLDING_TOKENS) || 100_000,
 });
 
@@ -34,7 +37,7 @@ export async function getPublicToken(): Promise<PublicToken> {
   if (!url || !key) return base;
   try {
     const res = await fetch(
-      `${url}/rest/v1/system_state?id=eq.1&select=token_mint,token_ticker,token_name,buy_url,x_url,launched`,
+      `${url}/rest/v1/system_state?id=eq.1&select=token_mint,token_ticker,token_name,buy_url,x_url,launched,launched_at`,
       { headers: { apikey: key }, next: { revalidate: 15 } },
     );
     if (!res.ok) return base;
@@ -45,6 +48,7 @@ export async function getPublicToken(): Promise<PublicToken> {
       buy_url: string | null;
       x_url: string | null;
       launched: boolean;
+      launched_at: string | null;
     }[];
     if (!s) return base;
     return {
@@ -55,6 +59,7 @@ export async function getPublicToken(): Promise<PublicToken> {
       buyUrl: s.buy_url || base.buyUrl,
       xUrl: s.x_url || base.xUrl,
       launched: s.launched,
+      launchedAt: s.launched && s.launched_at ? new Date(s.launched_at).getTime() : null,
     };
   } catch {
     return base;

@@ -75,9 +75,10 @@ export async function loadSystem(revalidate: number): Promise<SystemData> {
       rank: number;
       time_rank: number;
       class: PlanetClass;
+      orbit: number;
       sell_log: Sell[];
     }>(
-      "holders?status=eq.alive&rank=not.is.null&select=wallet,name,rank,time_rank,class,sell_log&order=rank",
+      "holders?status=eq.alive&rank=not.is.null&select=wallet,name,rank,time_rank,class,orbit,sell_log&order=rank",
       revalidate,
     ),
     selectAll<SceneStateRow>(
@@ -102,6 +103,7 @@ export async function loadSystem(revalidate: number): Promise<SystemData> {
         name: h.name ?? planetName(h.wallet),
         rank: h.rank,
         timeRank: h.time_rank,
+        orbit: h.orbit,
         cls: h.class,
         nature: st.nature,
         state: st,
@@ -220,7 +222,12 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
       summary: rows[0].summary,
     };
   }
-  const news = await loadEvents(wallet, h.life_no);
+  const [news, timeline] = await Promise.all([
+    loadEvents(wallet, h.life_no),
+    select<EventRow>(
+      `planet_events?wallet=eq.${wallet}&life_no=eq.${h.life_no}&or=(kind.in.(formed,sell,collapse,eraDown,eraUp,life,lifeGas,lifeAst,civ,rare))&select=${EVENT_COLS}&order=id.desc&limit=12`,
+    ),
+  ]);
   const sells = marked(h.sell_log, ps.state.countedSells);
   const card = cardFromState({
     wallet,
@@ -242,6 +249,7 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
     state: ps.state,
     news: news.items,
     newsTotal: news.total ?? news.items.length,
+    timeline: timeline.rows.map(toNews),
   });
   return { status: "alive", card };
 }
