@@ -1,4 +1,5 @@
 export { BALANCE, type Balance } from "./config";
+export * from "./chain";
 export * from "./demo";
 export * from "./events";
 export * from "./format";
