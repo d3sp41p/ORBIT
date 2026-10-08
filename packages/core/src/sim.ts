@@ -171,8 +171,15 @@ export function lifeChanceDay(S: SimState, h: Pick<SimHolder, "cls">): number {
   return H * base * (0.55 + S.stab / 110);
 }
 
-export function initSim(h: SimHolder): SimState {
-  const r = rngFor(h.addr + "sim");
+/**
+ * Seed of the simulation generator. Life 1 uses the prototype's seed
+ * (wallet + "sim"); a planet reborn after a full sell gets a new seed.
+ */
+export const simSeed = (addr: string, lifeNo = 1) =>
+  lifeNo <= 1 ? addr + "sim" : addr + "sim" + lifeNo;
+
+export function initSim(h: SimHolder, lifeNo = 1): SimState {
+  const r = rngFor(simSeed(h.addr, lifeNo));
   const rock = h.cls === "rocky",
     ast = h.cls === "asteroid",
     giant = !rock && !ast;

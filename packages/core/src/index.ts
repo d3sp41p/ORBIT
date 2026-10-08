@@ -6,6 +6,7 @@ export * from "./math";
 export * from "./names";
 export * from "./rng";
 export * from "./sim";
+export * from "./state";
 export * from "./system";
 export * from "./visual";
 export * from "./words";
