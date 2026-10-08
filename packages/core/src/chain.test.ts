@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   applyChange,
+  applyEvents,
   base58Decode,
   chainEvents,
   isEligible,
@@ -192,5 +193,49 @@ describe("ranks", () => {
       { wallet: "A", rank: 1, timeRank: 2 },
       { wallet: "C", rank: 3, timeRank: 1 },
     ]);
+  });
+});
+
+describe("applyEvents", () => {
+  const MIN = toRaw(100_000, 6);
+  const T = Date.UTC(2026, 9, 1);
+  const ev = (wallet: string, slot: number, tokens: number, at = T + slot * 1000) => ({
+    wallet,
+    slot,
+    balanceAfter: toRaw(tokens, 6),
+    at,
+  });
+
+  it("sets absolute balances and reports births and sells", () => {
+    const ledgers = new Map();
+    const r = applyEvents(ledgers, [ev("A", 10, 500_000), ev("A", 20, 400_000)], MIN);
+    expect(ledgers.get("A")).toMatchObject({
+      balance: toRaw(400_000, 6),
+      status: "alive",
+      lastSlot: 20,
+    });
+    expect(r.effects.map((e) => e.effect.type)).toEqual(["born", "sell"]);
+  });
+
+  it("skips events already covered by a snapshot, so a sell is never counted twice", () => {
+    const ledgers = new Map();
+    applyEvents(ledgers, [ev("A", 10, 1_000_000)], MIN);
+    // snapshot at slot 50 already saw the sell down to 600k
+    const snap = applyEvents(ledgers, [ev("A", 50, 600_000)], MIN);
+    expect(snap.effects).toEqual([
+      { wallet: "A", at: T + 50_000, effect: { type: "sell", frac: 0.4 } },
+    ]);
+    // the webhook for that sell (slot 42) arrives late
+    const late = applyEvents(ledgers, [ev("A", 42, 600_000)], MIN);
+    expect(late.effects).toEqual([]);
+    expect(ledgers.get("A").sells).toBe(1);
+  });
+
+  it("repairs a missed event with the next one's absolute balance", () => {
+    const ledgers = new Map();
+    applyEvents(ledgers, [ev("A", 10, 300_000)], MIN);
+    // a buy of +200k was missed; the next event says 700k after another +200k
+    applyEvents(ledgers, [ev("A", 30, 700_000)], MIN);
+    expect(ledgers.get("A").balance).toBe(toRaw(700_000, 6));
   });
 });

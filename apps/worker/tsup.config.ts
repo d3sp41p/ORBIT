@@ -6,6 +6,11 @@ export default defineConfig({
   platform: "node",
   target: "node22",
   clean: true,
-  // @orbit/core ships TypeScript sources, so it is bundled into the worker.
-  noExternal: ["@orbit/core"],
+  // Bundle every dependency so the Docker image needs only dist/.
+  noExternal: [/.*/],
+  external: ["pg-native"],
+  banner: {
+    // CommonJS dependencies (pg) call require() inside the ESM bundle.
+    js: `import { createRequire as __orbitCreateRequire } from "node:module"; const require = __orbitCreateRequire(import.meta.url);`,
+  },
 });

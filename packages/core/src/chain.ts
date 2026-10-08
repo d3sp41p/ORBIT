@@ -318,3 +318,57 @@ export function rankHolders(
     timeRank: timeRank.get(h.wallet)!,
   }));
 }
+
+/* ================= applying events ================= */
+
+export interface LedgerWithSlot extends HolderLedger {
+  /** Last chain slot already reflected in the balance. */
+  lastSlot: number;
+}
+
+export interface StoredChainEvent {
+  wallet: string;
+  slot: number;
+  /** Balance of the wallet right after this event (absolute, from the chain). */
+  balanceAfter: bigint;
+  /** ms since epoch */
+  at: number;
+}
+
+export interface AppliedEffect {
+  wallet: string;
+  at: number;
+  effect: LedgerEffect;
+}
+
+/**
+ * Apply stored chain events (sorted by slot) to holder ledgers.
+ * - The balance becomes the absolute balance after the event, so a missed
+ *   event can never leave a wrong balance behind.
+ * - Events at or before a holder's lastSlot are already counted (for example
+ *   by a reconciliation snapshot) and change nothing, so a late webhook never
+ *   counts the same sell twice.
+ */
+export function applyEvents(
+  ledgers: Map<string, LedgerWithSlot>,
+  events: readonly StoredChainEvent[],
+  minRaw: bigint,
+): { changed: Set<string>; effects: AppliedEffect[] } {
+  const changed = new Set<string>();
+  const effects: AppliedEffect[] = [];
+  for (const e of events) {
+    let h = ledgers.get(e.wallet);
+    if (!h) {
+      h = { ...newLedger(e.wallet), lastSlot: 0 };
+      ledgers.set(e.wallet, h);
+    }
+    if (e.slot <= h.lastSlot) continue;
+    const delta = e.balanceAfter - h.balance;
+    h.lastSlot = e.slot;
+    changed.add(e.wallet);
+    if (delta === 0n) continue;
+    for (const effect of applyChange(h, { delta, at: e.at }, minRaw))
+      effects.push({ wallet: e.wallet, at: e.at, effect });
+  }
+  return { changed, effects };
+}
