@@ -54,6 +54,7 @@ import {
   type Quality,
   type QualityPref,
 } from "./quality";
+import { pickBody, type ScreenBody } from "./pick";
 import * as SH from "./shaders";
 
 type Body = DemoHolder & {
@@ -677,25 +678,33 @@ export function start(opts: StartOptions = {}) {
     const d = camera.position.distanceTo(pos);
     return ((r / d) * (OH / 2)) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   }
-  function pickAt(x: number, y: number): Body | "star" | null {
-    let best: Body | null = null,
-      bd = 1e9;
+  function* screenBodies(): Generator<ScreenBody<Body | "star">> {
     for (const h of holders) {
       const s = project(h.pos);
-      if (s.z > 1) continue;
-      const rr = Math.max(screenR(h.pos, h.size) * 1.2, h.cls === "asteroid" ? 6 : 9);
-      const d = Math.hypot(s.x - x, s.y - y);
-      if (d < rr && d < bd) {
-        bd = d;
-        best = h;
-      }
+      const disk = screenR(h.pos, h.size);
+      yield {
+        item: h,
+        x: s.x,
+        y: s.y,
+        z: s.z,
+        disk,
+        touch: Math.max(disk * 1.2, h.cls === "asteroid" ? 6 : 9),
+        camDist: camera.position.distanceTo(h.pos),
+      };
     }
-    if (best) return best;
     const s = project(star.position);
-    if (s.z < 1 && Math.hypot(s.x - x, s.y - y) < Math.max(screenR(star.position, STAR_R), 14))
-      return "star";
-    return null;
+    const disk = screenR(star.position, STAR_R);
+    yield {
+      item: "star",
+      x: s.x,
+      y: s.y,
+      z: s.z,
+      disk,
+      touch: Math.max(disk, 14),
+      camDist: camera.position.distanceTo(star.position),
+    };
   }
+  const pickAt = (x: number, y: number) => pickBody(x, y, screenBodies());
   const tip = $("tip");
   let down: { x: number; y: number } | null = null;
   glc.addEventListener("pointerdown", (e) => {
@@ -710,8 +719,26 @@ export function start(opts: StartOptions = {}) {
     down = null;
   });
   let lastMove = 0;
+  // The label shows only after the cursor rests on a body for a moment, so
+  // sweeping the mouse across a crowded sky does not flash labels.
+  let tipTarget: Body | "star" | null = null;
+  let tipTimer = 0;
+  let tipXY = { x: 0, y: 0 };
+  function tipHTML(p: Body | "star") {
+    return p === "star"
+      ? `<b>$${esc(brand.ticker)}</b><small>${tier.name} · ${money(mcap)}</small>`
+      : `<b>${esc(p.name)}</b><small>#${p.rank} · ${t.cls[p.cls]} · ${eraLabel(p)}</small>`;
+  }
+  function hideTip() {
+    clearTimeout(tipTimer);
+    tipTarget = null;
+    tip.hidden = true;
+  }
   glc.addEventListener("pointermove", (e) => {
-    if (e.buttons) return;
+    if (e.buttons) {
+      hideTip();
+      return;
+    }
     const now = performance.now();
     if (now - lastMove < 40) return;
     lastMove = now;
@@ -728,19 +755,29 @@ export function start(opts: StartOptions = {}) {
     }
     setHover(p && p !== "star" ? p : null);
     glc.classList.toggle("hover", !!p);
+    tipXY = { x: e.clientX, y: e.clientY };
     // The selected planet is already described in the mission page: no label over it.
-    if (p && p !== selected && e.pointerType === "mouse") {
+    const want = p && p !== selected && e.pointerType === "mouse" ? p : null;
+    if (want === tipTarget) {
+      if (!tip.hidden) {
+        tip.style.left = tipXY.x + "px";
+        tip.style.top = tipXY.y + "px";
+      }
+      return;
+    }
+    hideTip();
+    if (!want) return;
+    tipTarget = want;
+    tipTimer = window.setTimeout(() => {
+      if (tipTarget !== want) return;
+      tip.innerHTML = tipHTML(want);
+      tip.style.left = tipXY.x + "px";
+      tip.style.top = tipXY.y + "px";
       tip.hidden = false;
-      tip.style.left = e.clientX + "px";
-      tip.style.top = e.clientY + "px";
-      tip.innerHTML =
-        p === "star"
-          ? `<b>$${esc(brand.ticker)}</b><small>${tier.name} · ${money(mcap)}</small>`
-          : `<b>${esc(p.name)}</b><small>#${p.rank} · ${t.cls[p.cls]} · ${eraLabel(p)}</small>`;
-    } else tip.hidden = true;
+    }, 150);
   });
   glc.addEventListener("pointerleave", () => {
-    tip.hidden = true;
+    hideTip();
     setHover(null);
   });
   function lineState(h: Body | null) {
@@ -792,6 +829,7 @@ export function start(opts: StartOptions = {}) {
     if (location.pathname !== path) history.replaceState(history.state, "", path);
   }
   function focus(h: Body, close = false) {
+    hideTip();
     if (selected !== h) newsShown = 8;
     setSelected(h);
     starPanel = false;
