@@ -1,4 +1,5 @@
-# Build from the repository root: docker build -f apps/worker/Dockerfile .
+# Worker image (apps/worker). Railway builds this root Dockerfile automatically.
+# Local build: docker build -t orbit-worker .
 FROM node:22-slim AS build
 WORKDIR /repo
 RUN corepack enable

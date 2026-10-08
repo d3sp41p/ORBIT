@@ -30,4 +30,4 @@ pnpm check            # all of the above except build
 
 Environment variables: copy `.env.example` to `.env.local`. Never commit real values.
 
-Deployment steps: `docs/DEPLOY.md`.
+Deployment steps: `docs/DEPLOY.md`. The root `Dockerfile` builds the worker (Railway).
