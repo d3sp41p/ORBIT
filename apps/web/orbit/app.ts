@@ -1,0 +1,1249 @@
+/**
+ * The 3D system: scene, planets, camera, interaction, overlay labels and the
+ * HUD wiring. Ported from reference/ORBIT_prototype.html. Data comes from the
+ * demo generator for now (stage 5 switches it to the API).
+ */
+import {
+  clamp,
+  DAY_MS,
+  DEMO,
+  ease,
+  esc,
+  generateDemoSystem,
+  KIND,
+  money,
+  mulberry32,
+  orbitSpeed,
+  rngFor,
+  splitNews,
+  STAR_TIERS,
+  starTierIndex,
+  step,
+  TAG,
+  TAU,
+  TICK,
+  visualOf,
+  fmt,
+  type DemoHolder,
+  type SimEvent,
+} from "@orbit/core";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { copy as t } from "./copy";
+import { brand } from "./env";
+import {
+  agoText,
+  eraLabel,
+  newsOf,
+  planetPanelHTML,
+  starPanelHTML,
+  type SystemInfo,
+} from "./panel";
+import {
+  FpsGovernor,
+  guessQuality,
+  loadPref,
+  PREF_ORDER,
+  QUALITY,
+  QUALITY_ORDER,
+  savePref,
+  type Quality,
+  type QualityPref,
+} from "./quality";
+import * as SH from "./shaders";
+
+type Body = DemoHolder & {
+  q: THREE.Quaternion;
+  pos: THREE.Vector3;
+  speed: number;
+  group?: THREE.Group;
+  mesh?: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  atmo?: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  atmoMat?: THREE.ShaderMaterial;
+  orbitLine?: THREE.LineLoop;
+  sats?: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
+  spin: number;
+  astRot?: THREE.Euler;
+  astScale?: THREE.Vector3;
+  astSpin?: number;
+  idx?: number;
+};
+
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+const vec3 = (a: readonly number[]) => new THREE.Vector3(a[0], a[1], a[2]);
+
+let started = false;
+
+export interface StartOptions {
+  /** Wallet from /planet/<wallet>; the camera flies to it after load. */
+  initialWallet?: string | null;
+  debug?: boolean;
+}
+
+export function start(opts: StartOptions = {}) {
+  if (started) return;
+  started = true;
+
+  const loading = $("loading");
+  const fail = (msg: string) => {
+    if (loading.classList.contains("gone")) return;
+    loading.classList.add("err");
+    loading.querySelector(".ld")!.textContent = msg;
+  };
+  addEventListener("error", (e) => fail(t.sceneError(e.message || "WebGL")));
+  const slowTimer = setTimeout(() => {
+    if (!loading.classList.contains("gone") && !loading.classList.contains("err")) fail(t.slowLoad);
+  }, 25000);
+
+  /* ================= data ================= */
+  const sys = generateDemoSystem(Date.now());
+  const holders = sys.holders as Body[];
+  const N = holders.length;
+  const mcap = DEMO.mcap;
+  const tierIdx = starTierIndex(mcap);
+  const tier = STAR_TIERS[tierIdx]!;
+  const info: SystemInfo = {
+    ticker: brand.ticker,
+    contract: brand.contract,
+    mcap,
+    supply: DEMO.supply,
+    launch: DEMO.launch,
+    count: N,
+    tierIndex: tierIdx,
+  };
+  /** Shared clock: orbital angles depend on wall time so every visitor sees the same sky. */
+  const missionSeconds = () => (Date.now() - DEMO.launch) / 1000;
+
+  /* ================= quality ================= */
+  let pref: QualityPref = loadPref();
+  const auto = () =>
+    guessQuality({
+      width: innerWidth,
+      coarsePointer: matchMedia("(pointer: coarse)").matches,
+      cores: navigator.hardwareConcurrency || 4,
+      memoryGb: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+    });
+  let quality: Quality = pref === "auto" ? auto() : pref;
+  let Q = QUALITY[quality];
+
+  /* ================= renderer / scene ================= */
+  const glc = $<HTMLCanvasElement>("gl");
+  let renderer: THREE.WebGLRenderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas: glc,
+      antialias: true,
+      powerPreference: "high-performance",
+    });
+  } catch (e) {
+    clearTimeout(slowTimer);
+    fail(t.noWebgl);
+    throw e;
+  }
+  const dpr = () => Math.min(devicePixelRatio, Q.maxDpr);
+  renderer.setPixelRatio(dpr());
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.02, 30000);
+  camera.position.set(0, 1500, 3200);
+  const controls = new OrbitControls(camera, glc);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.07;
+  controls.minDistance = 8;
+  controls.maxDistance = 2600;
+  controls.rotateSpeed = 0.6;
+  controls.zoomSpeed = 1.1;
+  controls.panSpeed = 0.8;
+  scene.add(new THREE.AmbientLight(0x8090b0, 0.06));
+  const sunLight = new THREE.PointLight(0xfff1dc, 3.2, 0, 0);
+  scene.add(sunLight);
+
+  /* ================= sky: procedural Milky Way baked once into a cube map ================= */
+  const gn = new THREE.Vector3(0.35, 0.86, -0.37).normalize();
+  const gc = new THREE.Vector3(0.9, -0.2, 0.4);
+  gc.sub(gn.clone().multiplyScalar(gc.dot(gn))).normalize();
+  const skyScene = new THREE.Scene();
+  skyScene.add(
+    new THREE.Mesh(
+      new THREE.SphereGeometry(5, 64, 32),
+      new THREE.ShaderMaterial({
+        vertexShader: SH.SKY_VS,
+        fragmentShader: SH.SKY_FS,
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: { uGN: { value: gn }, uGC: { value: gc } },
+      }),
+    ),
+  );
+  let cubeRT: THREE.WebGLCubeRenderTarget | null = null;
+  function bakeSky(res: number) {
+    if (cubeRT && cubeRT.width === res) return;
+    const next = new THREE.WebGLCubeRenderTarget(res, {
+      generateMipmaps: true,
+      minFilter: THREE.LinearMipmapLinearFilter,
+      magFilter: THREE.LinearFilter,
+      type: THREE.HalfFloatType,
+    });
+    new THREE.CubeCamera(0.1, 10, next).update(renderer, skyScene);
+    scene.background = next.texture;
+    scene.backgroundIntensity = 1.0;
+    cubeRT?.dispose();
+    cubeRT = next;
+  }
+  bakeSky(Q.skyRes);
+
+  /* near stars with real-looking colours, so rotating the camera feels deep */
+  const nearStarsMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uDpr: { value: renderer.getPixelRatio() } },
+    vertexShader: SH.NEAR_STARS_VS,
+    fragmentShader: SH.NEAR_STARS_FS,
+  });
+  let nearStars: THREE.Points | null = null;
+  function buildNearStars(n: number) {
+    if (nearStars && nearStars.geometry.getAttribute("position").count === n) return;
+    const pos = new Float32Array(n * 3),
+      col = new Float32Array(n * 3),
+      sz = new Float32Array(n),
+      ph = new Float32Array(n);
+    const r = mulberry32(99);
+    const v = new THREE.Vector3();
+    for (let i = 0; i < n; i++) {
+      v.set(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1).normalize();
+      if (r() < 0.55) {
+        const sb = v.dot(gn);
+        v.sub(gn.clone().multiplyScalar(sb * (0.8 + r() * 0.18))).normalize();
+      }
+      v.multiplyScalar(3500 + r() * 7000);
+      pos.set([v.x, v.y, v.z], i * 3);
+      const tt = r();
+      const c =
+        tt < 0.12
+          ? [1, 0.6, 0.42]
+          : tt < 0.35
+            ? [1, 0.85, 0.65]
+            : tt < 0.8
+              ? [0.95, 0.96, 1]
+              : [0.65, 0.78, 1];
+      col.set(c, i * 3);
+      sz[i] = 0.7 + Math.pow(r(), 6) * 3.4;
+      ph[i] = r() * TAU;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    g.setAttribute("size", new THREE.BufferAttribute(sz, 1));
+    g.setAttribute("phase", new THREE.BufferAttribute(ph, 1));
+    const pts = new THREE.Points(g, nearStarsMat);
+    pts.frustumCulled = false;
+    if (nearStars) {
+      scene.remove(nearStars);
+      nearStars.geometry.dispose();
+    }
+    scene.add(pts);
+    nearStars = pts;
+  }
+  buildNearStars(Q.nearStars);
+
+  /* ================= star ================= */
+  const STAR_R = 12;
+  const starMat = new THREE.ShaderMaterial({
+    vertexShader: SH.PLANET_VS,
+    fragmentShader: SH.STAR_FS,
+    uniforms: {
+      uTime: { value: 0 },
+      uCore: { value: vec3(tier.core) },
+      uEdge: { value: vec3(tier.edge) },
+    },
+  });
+  const star = new THREE.Mesh(new THREE.SphereGeometry(STAR_R, 96, 64), starMat);
+  scene.add(star);
+  function glowTex(stops: [number, string][]) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d")!;
+    const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    for (const [o, s] of stops) gr.addColorStop(o, s);
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 256, 256);
+    const tx = new THREE.CanvasTexture(c);
+    tx.colorSpace = THREE.SRGBColorSpace;
+    return tx;
+  }
+  const corona = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: glowTex([
+        [0, "rgba(255,255,255,1)"],
+        [0.12, "rgba(255,255,255,.55)"],
+        [0.3, "rgba(255,255,255,.14)"],
+        [0.6, "rgba(255,255,255,.03)"],
+        [1, "rgba(255,255,255,0)"],
+      ]),
+      color: tier.glow,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      transparent: true,
+    }),
+  );
+  corona.scale.setScalar(STAR_R * 6.5);
+  corona.material.opacity = 0.85;
+  scene.add(corona);
+  sunLight.color.set(tier.glow).lerp(new THREE.Color(0xffffff), 0.6);
+
+  /* ================= planets ================= */
+  const GAS = [
+    [
+      [0.86, 0.74, 0.58],
+      [0.62, 0.42, 0.28],
+      [0.95, 0.9, 0.8],
+    ],
+    [
+      [0.88, 0.8, 0.6],
+      [0.72, 0.6, 0.4],
+      [0.96, 0.92, 0.78],
+    ],
+    [
+      [0.78, 0.6, 0.62],
+      [0.46, 0.3, 0.42],
+      [0.94, 0.84, 0.84],
+    ],
+    [
+      [0.6, 0.76, 0.78],
+      [0.3, 0.46, 0.56],
+      [0.88, 0.94, 0.94],
+    ],
+    [
+      [0.92, 0.66, 0.42],
+      [0.6, 0.32, 0.18],
+      [0.98, 0.86, 0.66],
+    ],
+  ];
+  const ICE = [
+    [
+      [0.24, 0.4, 0.82],
+      [0.16, 0.28, 0.66],
+      [0.6, 0.72, 0.95],
+    ],
+    [
+      [0.58, 0.84, 0.88],
+      [0.46, 0.72, 0.8],
+      [0.82, 0.95, 0.96],
+    ],
+    [
+      [0.36, 0.6, 0.78],
+      [0.24, 0.44, 0.64],
+      [0.72, 0.86, 0.94],
+    ],
+  ];
+  const ATMO_COL: Record<string, number[]> = {
+    gas: [1, 0.86, 0.66],
+    ice: [0.55, 0.8, 1],
+    rocky: [0.42, 0.66, 1],
+    super: [1, 0.84, 0.6],
+  };
+  const geoHi = new THREE.SphereGeometry(1, 96, 64),
+    geoMid = new THREE.SphereGeometry(1, 48, 32),
+    geoLo = new THREE.SphereGeometry(1, 24, 16);
+  const orbitGeo = (() => {
+    const pts: number[] = [];
+    for (let i = 0; i <= 256; i++) {
+      const a = (i / 256) * TAU;
+      pts.push(Math.cos(a), 0, Math.sin(a));
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  })();
+  const lineMat = (color: number, opacity: number) =>
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
+  const orbitMat = lineMat(0xffffff, 0.055);
+  const orbitMatHi = lineMat(0xfc3d21, 0.7);
+  const orbitMatHov = lineMat(0xffffff, 0.3);
+  const planets: Body[] = [];
+  const asteroids: Body[] = [];
+  const tmpV = new THREE.Vector3();
+
+  function syncVisual(h: Body) {
+    const u = h.mesh?.material.uniforms;
+    if (!u) return;
+    const v = visualOf(h.S, h.cls);
+    u.uLava!.value = v.lava;
+    u.uWater!.value = v.water;
+    u.uBio!.value = v.bio;
+    u.uCity!.value = v.city;
+    u.uIce!.value = v.ice;
+    u.uAsh!.value = v.ash;
+    u.uDim!.value = v.dim;
+    if (h.atmoMat && v.atmo !== null) h.atmoMat.uniforms.uStrength!.value = v.atmo;
+  }
+
+  for (const h of holders) {
+    h.q = new THREE.Quaternion().setFromEuler(new THREE.Euler(h.incl, h.node, 0, "YXZ"));
+    h.pos = new THREE.Vector3();
+    h.speed = orbitSpeed(h.orbit);
+    h.spin = 0;
+    if (h.cls === "asteroid") {
+      asteroids.push(h);
+      continue;
+    }
+    const r = rngFor(h.addr + "v");
+    const group = new THREE.Group();
+    const type = h.cls === "gas" || h.cls === "super" ? 0 : h.cls === "ice" ? 1 : 2;
+    const pal =
+      type === 0
+        ? GAS[Math.floor(r() * GAS.length)]!
+        : type === 1
+          ? ICE[Math.floor(r() * ICE.length)]!
+          : [
+              [0, 0, 0],
+              [0, 0, 0],
+              [0, 0, 0],
+            ];
+    const tint = [0.85 + r() * 0.3, 0.8 + r() * 0.25, 0.75 + r() * 0.3];
+    const storm = new THREE.Vector3(r() - 0.5, (r() - 0.5) * 0.8, r() - 0.5).normalize();
+    const counted = h.sells.filter((s) => s.counted).length;
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: SH.PLANET_VS,
+      fragmentShader: SH.PLANET_FS,
+      uniforms: {
+        uType: { value: type },
+        uSeed: { value: new THREE.Vector3(r() * 50, r() * 50, r() * 50) },
+        uC1: { value: vec3(pal[0]!) },
+        uC2: { value: vec3(pal[1]!) },
+        uC3: { value: vec3(pal[2]!) },
+        uBands: { value: type === 0 ? 14 + r() * 12 : 6 + r() * 5 },
+        uCrater: { value: type === 2 ? (counted ? clamp(0.2 + counted * 0.15, 0, 0.7) : 0.06) : 0 },
+        uTime: { value: 0 },
+        uStorm: { value: storm },
+        uStormOn: { value: type === 0 && r() > 0.35 ? 1 : 0 },
+        uTint: { value: vec3(tint) },
+        uHi: { value: h.rank <= 120 ? 1 : 0 },
+        uSize: { value: h.size },
+        uPx: { value: 10 },
+        uLava: { value: 0 },
+        uWater: { value: 0 },
+        uBio: { value: 0 },
+        uCity: { value: 0 },
+        uIce: { value: 0 },
+        uAsh: { value: 0 },
+        uDim: { value: 0 },
+      },
+    });
+    const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>(geoLo, mat);
+    mesh.scale.setScalar(h.size);
+    const tilt = new THREE.Group();
+    tilt.rotation.z = (r() - 0.5) * 0.6;
+    tilt.add(mesh);
+    group.add(tilt);
+    const am = new THREE.ShaderMaterial({
+      vertexShader: SH.ATMO_VS,
+      fragmentShader: SH.ATMO_FS,
+      uniforms: {
+        uColor: { value: vec3(ATMO_COL[h.cls]!) },
+        uPower: { value: type === 2 ? 3.4 : 3.6 },
+        uStrength: { value: type === 2 ? 0 : 0.8 },
+        uFade: { value: 1 },
+      },
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false,
+    });
+    const atmo = new THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>(geoLo, am);
+    atmo.scale.setScalar(h.size * (type === 2 ? 1.035 : 1.025));
+    tilt.add(atmo);
+    h.atmoMat = am;
+    h.atmo = atmo;
+    if (h.rings) {
+      const inR = h.size * 1.45,
+        outR = h.size * (type === 2 ? 2.0 : 2.5);
+      const rg = new THREE.RingGeometry(inR, outR, 160, 1);
+      const rc =
+        type === 0 ? [0.88, 0.8, 0.66] : type === 1 ? [0.7, 0.8, 0.86] : [0.75, 0.72, 0.68];
+      const rm = new THREE.ShaderMaterial({
+        vertexShader: SH.RING_VS,
+        fragmentShader: SH.RING_FS,
+        uniforms: {
+          uIn: { value: inR },
+          uOut: { value: outR },
+          uColor: { value: vec3(rc) },
+          uCenter: { value: h.pos },
+          uR: { value: h.size },
+          uSeedF: { value: r() * 10 },
+        },
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.CustomBlending,
+        blendSrc: THREE.OneFactor,
+        blendDst: THREE.OneMinusSrcAlphaFactor,
+      });
+      const ring = new THREE.Mesh(rg, rm);
+      ring.rotation.x = -Math.PI / 2 + 0.08;
+      tilt.add(ring);
+    }
+    const era = h.S.era;
+    if (era >= 5) {
+      const n = era === 5 ? 8 : era === 6 ? 20 : 34;
+      const pts: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const a = r() * TAU,
+          inc = (r() - 0.5) * 1.2,
+          d = h.size * (1.35 + r() * 0.9);
+        pts.push(Math.cos(a) * d, Math.sin(inc) * d * 0.5, Math.sin(a) * d);
+      }
+      const sg = new THREE.BufferGeometry();
+      sg.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+      const sats = new THREE.Points(
+        sg,
+        new THREE.PointsMaterial({
+          color: 0xfff3e0,
+          size: Math.max(0.03, h.size * 0.022),
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      sats.userData.spin = 0.15 + r() * 0.2;
+      tilt.add(sats);
+      h.sats = sats;
+    }
+    if (era >= 7) {
+      const ringWorld = new THREE.Mesh(
+        new THREE.TorusGeometry(h.size * 1.9, h.size * 0.018, 8, 200),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.3, 0.95) }),
+      );
+      ringWorld.rotation.x = Math.PI / 2 + 0.25;
+      tilt.add(ringWorld);
+    }
+    scene.add(group);
+    const orbit = new THREE.LineLoop(orbitGeo, orbitMat);
+    orbit.scale.setScalar(h.orbit);
+    orbit.quaternion.copy(h.q);
+    orbit.visible = h.rank <= 50;
+    scene.add(orbit);
+    h.group = group;
+    h.mesh = mesh;
+    h.orbitLine = orbit;
+    h.spin = (0.05 + r() * 0.12) * (r() < 0.1 ? -1 : 1);
+    planets.push(h);
+    syncVisual(h);
+  }
+  const astGeo = (() => {
+    const g = new THREE.IcosahedronGeometry(1, 1);
+    const p = g.attributes.position!;
+    const r = mulberry32(7);
+    for (let i = 0; i < p.count; i++) {
+      tmpV.fromBufferAttribute(p, i);
+      tmpV.multiplyScalar(0.75 + r() * 0.45);
+      p.setXYZ(i, tmpV.x, tmpV.y, tmpV.z);
+    }
+    g.computeVertexNormals();
+    return g;
+  })();
+  const astMesh = new THREE.InstancedMesh(
+    astGeo,
+    new THREE.MeshStandardMaterial({
+      color: 0x8a8178,
+      roughness: 1,
+      metalness: 0,
+      flatShading: true,
+    }),
+    asteroids.length,
+  );
+  astMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  scene.add(astMesh);
+  asteroids.forEach((h, i) => {
+    const r = rngFor(h.addr + "a");
+    h.astRot = new THREE.Euler(r() * TAU, r() * TAU, r() * TAU);
+    h.astScale = new THREE.Vector3(
+      h.size * (0.8 + r() * 0.5),
+      h.size * (0.6 + r() * 0.4),
+      h.size * (0.7 + r() * 0.5),
+    );
+    h.astSpin = (r() - 0.5) * 1.5;
+    h.idx = i;
+  });
+  const astDummy = new THREE.Object3D();
+  const dotGeo = new THREE.BufferGeometry();
+  dotGeo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(N * 3), 3));
+  const dotCol = new Float32Array(N * 3);
+  holders.forEach((h, i) => {
+    const c =
+      h.cls === "asteroid"
+        ? [0.45, 0.43, 0.42]
+        : h.cls === "rocky"
+          ? [0.6, 0.7, 0.8]
+          : h.cls === "ice"
+            ? [0.55, 0.75, 1]
+            : [1, 0.85, 0.6];
+    dotCol.set(c, i * 3);
+  });
+  dotGeo.setAttribute("color", new THREE.Float32BufferAttribute(dotCol, 3));
+  const dotTex = glowTex([
+    [0, "rgba(255,255,255,1)"],
+    [0.35, "rgba(255,255,255,.8)"],
+    [1, "rgba(255,255,255,0)"],
+  ]);
+  const dots = new THREE.Points(
+    dotGeo,
+    new THREE.PointsMaterial({
+      size: 4,
+      map: dotTex,
+      sizeAttenuation: false,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+    }),
+  );
+  scene.add(dots);
+
+  /* ================= post ================= */
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.5, 0.9);
+  bloom.enabled = Q.bloom;
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+
+  /* ================= overlay + interaction ================= */
+  const ov = $<HTMLCanvasElement>("ov"),
+    octx = ov.getContext("2d")!;
+  const monoFont =
+    getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim() ||
+    "'IBM Plex Mono', monospace";
+  let OW = 0,
+    OH = 0,
+    ODPR = 1;
+  const panel = $("panel"),
+    pBody = $("pBody");
+  function applyOffset() {
+    const open = !panel.hidden;
+    if (open && innerWidth > 760) {
+      const w = panel.getBoundingClientRect().width || Math.min(660, innerWidth * 0.5);
+      camera.setViewOffset(innerWidth, innerHeight, w / 2, 0, innerWidth, innerHeight);
+    } else if (open)
+      camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * 0.29, innerWidth, innerHeight);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+  }
+  function resize() {
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth / innerHeight;
+    applyOffset();
+    camera.updateProjectionMatrix();
+    ODPR = Math.min(devicePixelRatio, 2);
+    OW = innerWidth;
+    OH = innerHeight;
+    ov.width = OW * ODPR;
+    ov.height = OH * ODPR;
+  }
+  addEventListener("resize", resize);
+  resize();
+
+  let selected: Body | null = null,
+    hovered: Body | null = null,
+    starPanel = false;
+  const fly = {
+    active: false,
+    t: 0,
+    dur: 1,
+    from: new THREE.Vector3(),
+    fromT: new THREE.Vector3(),
+    targetFn: (): THREE.Vector3 => new THREE.Vector3(),
+    dist: 1,
+    dir: new THREE.Vector3(),
+    overview: false,
+    follow: null as Body | null,
+  };
+  let follow: Body | null = null;
+  const lastFollow = new THREE.Vector3();
+  function project(v: THREE.Vector3) {
+    tmpV.copy(v).project(camera);
+    return { x: (tmpV.x * 0.5 + 0.5) * OW, y: (-tmpV.y * 0.5 + 0.5) * OH, z: tmpV.z };
+  }
+  function screenR(pos: THREE.Vector3, r: number) {
+    const d = camera.position.distanceTo(pos);
+    return ((r / d) * (OH / 2)) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  }
+  function pickAt(x: number, y: number): Body | "star" | null {
+    let best: Body | null = null,
+      bd = 1e9;
+    for (const h of holders) {
+      const s = project(h.pos);
+      if (s.z > 1) continue;
+      const rr = Math.max(screenR(h.pos, h.size) * 1.2, h.cls === "asteroid" ? 6 : 9);
+      const d = Math.hypot(s.x - x, s.y - y);
+      if (d < rr && d < bd) {
+        bd = d;
+        best = h;
+      }
+    }
+    if (best) return best;
+    const s = project(star.position);
+    if (s.z < 1 && Math.hypot(s.x - x, s.y - y) < Math.max(screenR(star.position, STAR_R), 14))
+      return "star";
+    return null;
+  }
+  const tip = $("tip");
+  let down: { x: number; y: number } | null = null;
+  glc.addEventListener("pointerdown", (e) => {
+    down = { x: e.clientX, y: e.clientY };
+  });
+  glc.addEventListener("pointerup", (e) => {
+    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5) {
+      const p = pickAt(e.clientX, e.clientY);
+      if (p === "star") openStar();
+      else if (p) focus(p);
+    }
+    down = null;
+  });
+  let lastMove = 0;
+  glc.addEventListener("pointermove", (e) => {
+    if (e.buttons) return;
+    const now = performance.now();
+    if (now - lastMove < 40) return;
+    lastMove = now;
+    const p = pickAt(e.clientX, e.clientY);
+    setHover(p && p !== "star" ? p : null);
+    glc.classList.toggle("hover", !!p);
+    if (p && e.pointerType === "mouse") {
+      tip.hidden = false;
+      tip.style.left = e.clientX + "px";
+      tip.style.top = e.clientY + "px";
+      tip.innerHTML =
+        p === "star"
+          ? `<b>$${esc(brand.ticker)}</b><small>${tier.name} · ${money(mcap)}</small>`
+          : `<b>${esc(p.name)}</b><small>#${p.rank} · ${t.cls[p.cls]} · ${eraLabel(p)}</small>`;
+    } else tip.hidden = true;
+  });
+  glc.addEventListener("pointerleave", () => {
+    tip.hidden = true;
+    setHover(null);
+  });
+  function lineState(h: Body | null) {
+    if (!h || !h.orbitLine) return;
+    const on = h === selected || h === hovered;
+    h.orbitLine.material = h === selected ? orbitMatHi : h === hovered ? orbitMatHov : orbitMat;
+    h.orbitLine.visible = on || h.rank <= 50;
+  }
+  function setHover(h: Body | null) {
+    if (hovered === h) return;
+    const old = hovered;
+    hovered = h;
+    lineState(old);
+    lineState(h);
+  }
+  function setSelected(h: Body | null) {
+    const old = selected;
+    selected = h;
+    lineState(old);
+    lineState(h);
+  }
+  controls.addEventListener("start", () => {
+    if (fly.active) fly.active = false;
+  });
+  function flyTo(targetFn: () => THREE.Vector3, dist: number, dur = 1.8) {
+    const from = camera.position.clone(),
+      fromT = controls.target.clone();
+    const dir = from.clone().sub(fromT).normalize();
+    if (dir.y < 0.15) {
+      dir.y = 0.25;
+      dir.normalize();
+    }
+    Object.assign(fly, {
+      active: true,
+      t: 0,
+      dur,
+      from,
+      fromT,
+      targetFn,
+      dist,
+      dir,
+      overview: false,
+      follow: null,
+    });
+    follow = null;
+  }
+  let newsShown = 8;
+  function setUrl(path: string) {
+    if (location.pathname !== path) history.replaceState(history.state, "", path);
+  }
+  function focus(h: Body, close = false) {
+    if (selected !== h) newsShown = 8;
+    setSelected(h);
+    starPanel = false;
+    renderPanel(true);
+    setUrl(`/planet/${h.addr}`);
+    controls.minDistance = h.size * 1.6;
+    const k = innerWidth < 760 ? 1.8 : 1;
+    flyTo(() => h.pos, h.size * (close ? 2.8 : 7) * k, close ? 1.2 : 1.9);
+    fly.follow = h;
+  }
+  function openStar() {
+    setSelected(null);
+    starPanel = true;
+    renderPanel(true);
+    setUrl("/");
+    controls.minDistance = STAR_R * 1.5;
+    flyTo(() => star.position, STAR_R * 7, 1.6);
+    fly.follow = null;
+  }
+  function overview() {
+    closePanel();
+    controls.minDistance = 8;
+    flyTo(() => new THREE.Vector3(), 1, 2.2);
+    fly.overview = true;
+  }
+  $("zIn").onclick = () => {
+    fly.active = false;
+    const d = camera.position.clone().sub(controls.target);
+    camera.position.copy(controls.target).add(d.multiplyScalar(0.65));
+  };
+  $("zOut").onclick = () => {
+    fly.active = false;
+    const d = camera.position.clone().sub(controls.target);
+    if (d.length() < 2200) camera.position.copy(controls.target).add(d.multiplyScalar(1.5));
+  };
+  $("zFit").onclick = overview;
+
+  /* ================= panel ================= */
+  function closePanel() {
+    panel.hidden = true;
+    applyOffset();
+    document.body.classList.remove("panel-open");
+    setSelected(null);
+    starPanel = false;
+    follow = null;
+    fly.follow = null;
+    controls.minDistance = 8;
+    setUrl("/");
+  }
+  addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !panel.hidden) closePanel();
+  });
+  function renderPanel(reset = false) {
+    const keep = pBody.scrollTop;
+    const wasHidden = panel.hidden;
+    panel.hidden = false;
+    document.body.classList.add("panel-open");
+    if (wasHidden) requestAnimationFrame(applyOffset);
+    applyOffset();
+    if (starPanel) pBody.innerHTML = starPanelHTML(info);
+    else if (selected) {
+      const h = selected;
+      pBody.innerHTML = planetPanelHTML(h, info, newsShown);
+      $("closeUp").onclick = () => focus(h, true);
+      const mn = document.getElementById("moreNews");
+      if (mn)
+        mn.onclick = () => {
+          newsShown += 12;
+          renderPanel();
+        };
+    }
+    $("pBack").onclick = closePanel;
+    pBody.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach(
+      (b) =>
+        (b.onclick = async () => {
+          const label = b.textContent;
+          try {
+            await navigator.clipboard.writeText(b.dataset.copy!);
+            b.textContent = t.copied;
+          } catch {
+            const s = getSelection()!,
+              rg = document.createRange();
+            rg.selectNodeContents(b.previousElementSibling!);
+            s.removeAllRanges();
+            s.addRange(rg);
+            b.textContent = t.selectedT;
+          }
+          setTimeout(() => (b.textContent = label), 1500);
+        }),
+    );
+    pBody.scrollTop = reset ? 0 : keep;
+    if (reset) $("pBack").focus({ preventScroll: true });
+  }
+
+  /* ================= global feed + live ticks ================= */
+  const gfeedEl = $("gfeed");
+  let gitems: { h: Body; e: SimEvent; at: number }[] = [];
+  function gWorthy(h: Body, e: SimEvent) {
+    const k = KIND[e.k];
+    if (k === "neutral") return e.k === "election" || e.k === "neighbor";
+    if (h.cls === "asteroid") return k === "mile" || k === "rare";
+    return true;
+  }
+  function gfeedRender() {
+    const now = Date.now();
+    gfeedEl.innerHTML = gitems
+      .slice(0, 4)
+      .map((g, i) => {
+        const k = KIND[g.e.k];
+        const [hd] = splitNews(newsOf(g.e, g.h));
+        return `<li><button data-i="${i}"><span class="meta"><span class="tag t-${k}">${TAG[k]}</span><time>${agoText(g.h, g.e.day, now)}</time></span><span class="hl">${esc(hd)}</span><span class="pl">${esc(g.h.name)} · #${g.h.rank} · ${t.cls[g.h.cls]}</span></button></li>`;
+      })
+      .join("");
+    gfeedEl
+      .querySelectorAll<HTMLButtonElement>("button")
+      .forEach((b) => (b.onclick = () => focus(gitems[+b.dataset.i!]!.h)));
+  }
+  {
+    const cut = Date.now() - 30 * 3600000;
+    for (const h of holders)
+      for (const e of h.S.news) {
+        const at = h.start + e.day * DAY_MS;
+        if (at >= cut && gWorthy(h, e)) gitems.push({ h, e, at });
+      }
+    gitems.sort((a, b) => b.at - a.at);
+    gitems = gitems.slice(0, 12);
+  }
+  // Demo only: the browser advances the demo simulation. In production the
+  // server runs ticks and the site receives events over Realtime (stage 5).
+  setInterval(() => {
+    const now = Date.now();
+    let changed = false;
+    for (const h of holders) {
+      const S = h.S;
+      const due = h.start + S.k * TICK * DAY_MS;
+      if (now >= due) {
+        const before = S.news.length;
+        step(S, h, S.k * TICK, sys.ctx);
+        S.k++;
+        h.days = (now - h.start) / DAY_MS;
+        syncVisual(h);
+        for (let i = before; i < S.news.length; i++) {
+          const e = S.news[i]!;
+          if (!gWorthy(h, e)) continue;
+          gitems.unshift({ h, e, at: h.start + e.day * DAY_MS });
+          changed = true;
+        }
+        if (selected === h && !starPanel && S.news.length > before) renderPanel();
+      }
+    }
+    if (changed) {
+      gitems = gitems.slice(0, 12);
+      gfeedRender();
+    }
+  }, 1000);
+  setInterval(() => {
+    if (gitems.length) gfeedRender();
+  }, 60000);
+
+  /* ================= search ================= */
+  const help = $("searchHelp");
+  const searchInput = $<HTMLInputElement>("search");
+  function helpDefault(err = "") {
+    help.innerHTML = `${err ? `<span class="err">${esc(err)}</span>` : ""}<button type="button" class="rnd">${t.random}</button><button type="button" id="topBtn">${t.top1}</button>`;
+    help.querySelector<HTMLButtonElement>(".rnd")!.onclick = () => {
+      const pool = planets.filter((h) => h.S.life || h.rank <= 200);
+      const h = pool[Math.floor(Math.random() * pool.length)]!;
+      searchInput.value = h.addr;
+      focus(h);
+    };
+    $("topBtn").onclick = () => {
+      const h = holders.find((x) => x.rank === 1)!;
+      searchInput.value = h.addr;
+      focus(h);
+    };
+  }
+  function findHolder(q: string): Body | undefined {
+    const ql = q.toLowerCase();
+    let h = holders.find((x) => x.addr === q) || holders.find((x) => x.name.toLowerCase() === ql);
+    if (!h && q.length >= 4)
+      h = holders.find(
+        (x) => x.addr.toLowerCase().includes(ql) || x.name.toLowerCase().includes(ql),
+      );
+    return h;
+  }
+  $("searchForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = searchInput.value.trim();
+    if (!q) {
+      helpDefault();
+      return;
+    }
+    const h = findHolder(q);
+    if (h) {
+      helpDefault();
+      focus(h);
+    } else helpDefault(t.notFound);
+  });
+  helpDefault();
+  gfeedRender();
+
+  /* ================= HUD ================= */
+  $("sMcap").textContent = money(mcap);
+  $("sHolders").textContent = fmt(N);
+  $("sClass").textContent = `${tier.cls} · ${tier.name}`;
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  function tele() {
+    const n = new Date();
+    $("tUtc").textContent = n.toISOString().slice(11, 19);
+    const ms = Math.max(0, n.getTime() - DEMO.launch);
+    const d = Math.floor(ms / DAY_MS),
+      hh = Math.floor((ms % DAY_MS) / 3600000),
+      mm = Math.floor((ms % 3600000) / 60000),
+      ss = Math.floor((ms % 60000) / 1000);
+    $("tMet").textContent = `T+${d}d ${pad2(hh)}:${pad2(mm)}:${pad2(ss)}`;
+  }
+  tele();
+  setInterval(tele, 1000);
+  $("brandLink").onclick = (e) => {
+    e.preventDefault();
+    overview();
+  };
+
+  /* ================= quality switch ================= */
+  const qBtn = $<HTMLButtonElement>("qBtn");
+  function qLabel() {
+    const name = pref === "auto" ? `${t.qualityNames.auto}` : t.qualityNames[pref];
+    qBtn.textContent = pref === "auto" ? `AUTO` : name.slice(0, 3).toUpperCase();
+    qBtn.title = `${t.quality}: ${name}${pref === "auto" ? ` (${t.qualityNames[quality]})` : ""}`;
+    qBtn.setAttribute("aria-label", qBtn.title);
+  }
+  function setQuality(q: Quality) {
+    quality = q;
+    Q = QUALITY[q];
+    renderer.setPixelRatio(dpr());
+    composer.setPixelRatio(dpr());
+    nearStarsMat.uniforms.uDpr!.value = renderer.getPixelRatio();
+    bloom.enabled = Q.bloom;
+    bakeSky(Q.skyRes);
+    buildNearStars(Q.nearStars);
+    resize();
+    qLabel();
+  }
+  qBtn.onclick = () => {
+    pref = PREF_ORDER[(PREF_ORDER.indexOf(pref) + 1) % PREF_ORDER.length]!;
+    savePref(pref);
+    setQuality(pref === "auto" ? auto() : pref);
+  };
+  qLabel();
+  const governor = new FpsGovernor(() => {
+    if (pref !== "auto") return false;
+    const i = QUALITY_ORDER.indexOf(quality);
+    if (i >= QUALITY_ORDER.length - 1) return false;
+    setQuality(QUALITY_ORDER[i + 1]!);
+    return true;
+  });
+
+  /* ================= debug ================= */
+  const meter = opts.debug ? $("fpsMeter") : null;
+  if (meter) meter.hidden = false;
+  let meterFrames = 0,
+    meterTime = 0;
+  if (opts.debug)
+    (window as unknown as { __orbit: unknown }).__orbit = {
+      focus,
+      openStar,
+      holders,
+      camera,
+      planets,
+    };
+
+  /* ================= loop ================= */
+  const clock = new THREE.Clock();
+  let T = 0;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const OVERVIEW_POS = new THREE.Vector3(0, 270, 620);
+  const intro = { t: 0, from: camera.position.clone(), to: OVERVIEW_POS.clone() };
+  let introDone = false,
+    frames = 0;
+  let raf = 0;
+
+  if (opts.initialWallet) {
+    const h = holders.find((x) => x.addr === opts.initialWallet);
+    if (h) {
+      introDone = true;
+      camera.position.copy(OVERVIEW_POS);
+      focus(h);
+    } else {
+      searchInput.value = opts.initialWallet;
+      helpDefault(t.notFound);
+      setUrl("/");
+    }
+  }
+
+  function animate() {
+    const realDt = clock.getDelta();
+    const dt = Math.min(realDt, 0.05);
+    T += dt;
+    const sp = reduce ? 0.3 : 1;
+    starMat.uniforms.uTime!.value = T;
+    nearStarsMat.uniforms.uTime!.value = T;
+    const tSec = missionSeconds() * sp;
+    const pos = dotGeo.attributes.position!.array as Float32Array;
+    holders.forEach((h, i) => {
+      const ang = h.ang0 + h.speed * tSec;
+      h.pos.set(Math.cos(ang) * h.orbit, 0, Math.sin(ang) * h.orbit).applyQuaternion(h.q);
+      pos[i * 3] = h.pos.x;
+      pos[i * 3 + 1] = h.pos.y;
+      pos[i * 3 + 2] = h.pos.z;
+    });
+    dotGeo.attributes.position!.needsUpdate = true;
+    const hiAllowed = Q.maxDetail === "hi";
+    for (const h of planets) {
+      h.group!.position.copy(h.pos);
+      const px = screenR(h.pos, h.size);
+      const u = h.mesh!.material.uniforms;
+      u.uPx!.value = px;
+      u.uTime!.value = T;
+      const g = px > 70 && hiAllowed ? geoHi : px > 14 ? geoMid : geoLo;
+      if (h.mesh!.geometry !== g) {
+        h.mesh!.geometry = g;
+        h.atmo!.geometry = g;
+      }
+      h.atmoMat!.uniforms.uFade!.value = clamp((px - 3) / 14, 0, 1);
+      if (h.sats) {
+        const o = clamp((px - 8) / 30, 0, 1);
+        h.sats.visible = o > 0;
+        h.sats.material.opacity = 0.95 * o;
+        h.sats.rotation.y += h.sats.userData.spin * dt * sp;
+      }
+      h.mesh!.rotation.y += h.spin * dt * sp;
+    }
+    for (const h of asteroids) {
+      h.astRot!.x += h.astSpin! * dt * 0.3 * sp;
+      h.astRot!.y += h.astSpin! * dt * 0.2 * sp;
+      astDummy.position.copy(h.pos);
+      astDummy.rotation.copy(h.astRot!);
+      astDummy.scale.copy(h.astScale!);
+      astDummy.updateMatrix();
+      astMesh.setMatrixAt(h.idx!, astDummy.matrix);
+    }
+    astMesh.instanceMatrix.needsUpdate = true;
+    if (!introDone) {
+      intro.t = Math.min(1, intro.t + dt / 3.2);
+      camera.position.lerpVectors(intro.from, intro.to, ease(intro.t));
+      controls.target.set(0, 0, 0);
+      if (intro.t >= 1) introDone = true;
+    }
+    if (fly.active) {
+      fly.t = Math.min(1, fly.t + dt / fly.dur);
+      const e = ease(fly.t);
+      const tgt = fly.targetFn();
+      const endPos = fly.overview
+        ? OVERVIEW_POS.clone()
+        : tgt.clone().add(fly.dir.clone().multiplyScalar(fly.dist));
+      controls.target.lerpVectors(fly.fromT, tgt, e);
+      camera.position.lerpVectors(fly.from, endPos, e);
+      if (fly.t >= 1) {
+        fly.active = false;
+        fly.overview = false;
+        if (fly.follow) {
+          follow = fly.follow;
+          lastFollow.copy(follow.pos);
+        }
+      }
+    } else if (follow) {
+      const d = follow.pos.clone().sub(lastFollow);
+      camera.position.add(d);
+      controls.target.add(d);
+      lastFollow.copy(follow.pos);
+    }
+    controls.enablePan = !follow && !fly.active;
+    controls.update();
+    composer.render();
+    drawOverlay();
+    if (++frames === 3) {
+      loading.classList.add("gone");
+      clearTimeout(slowTimer);
+    }
+    if (pref === "auto") governor.tick(realDt);
+    if (meter) {
+      meterFrames++;
+      meterTime += realDt;
+      if (meterTime >= 0.5) {
+        meter.textContent = `${Math.round(meterFrames / meterTime)} FPS · ${quality.toUpperCase()}`;
+        meterFrames = 0;
+        meterTime = 0;
+      }
+    }
+    raf = requestAnimationFrame(animate);
+  }
+  function drawOverlay() {
+    octx.setTransform(ODPR, 0, 0, ODPR, 0, 0);
+    octx.clearRect(0, 0, OW, OH);
+    octx.textAlign = "left";
+    octx.textBaseline = "middle";
+    const list: [Body, { x: number; y: number; z: number }][] = [];
+    for (const h of planets) {
+      if (h.rank > 10 && h !== selected && h !== hovered) continue;
+      const s = project(h.pos);
+      if (s.z > 1 || s.x < -40 || s.x > OW + 40 || s.y < -40 || s.y > OH + 40) continue;
+      list.push([h, s]);
+    }
+    for (const h of [selected, hovered]) {
+      if (h && h.cls === "asteroid") {
+        const s = project(h.pos);
+        if (s.z < 1) list.push([h, s]);
+      }
+    }
+    for (const [h, s] of list) {
+      const R = Math.max(screenR(h.pos, h.size), 2.5),
+        sel = h === selected,
+        hov = h === hovered;
+      if (sel || hov) {
+        const b = R * 1.2 + 9,
+          l = Math.max(5, Math.min(14, b * 0.4));
+        octx.strokeStyle = sel ? "#fc3d21" : "rgba(255,255,255,.85)";
+        octx.lineWidth = 1.3;
+        octx.beginPath();
+        for (const [sx, sy] of [
+          [-1, -1],
+          [1, -1],
+          [1, 1],
+          [-1, 1],
+        ] as const) {
+          const cx = s.x + sx * b,
+            cy = s.y + sy * b;
+          octx.moveTo(cx, cy - sy * l);
+          octx.lineTo(cx, cy);
+          octx.lineTo(cx - sx * l, cy);
+        }
+        octx.stroke();
+      }
+      if (R > 60 && sel) continue;
+      const x0 = s.x + R * 0.72 + 2,
+        y0 = s.y - R * 0.72 - 2,
+        x1 = x0 + 14,
+        y1 = y0 - 14;
+      octx.strokeStyle = sel ? "rgba(252,61,33,.9)" : "rgba(255,255,255,.38)";
+      octx.lineWidth = 1;
+      octx.beginPath();
+      octx.moveTo(x0, y0);
+      octx.lineTo(x1, y1);
+      octx.lineTo(x1 + 8, y1);
+      octx.stroke();
+      octx.font = `600 10.5px ${monoFont}`;
+      octx.fillStyle = sel ? "#fff" : "rgba(255,255,255,.82)";
+      octx.fillText(h.name.toUpperCase(), x1 + 12, y1);
+      octx.font = `400 9.5px ${monoFont}`;
+      octx.fillStyle = sel ? "rgba(252,61,33,.95)" : "rgba(160,166,178,.75)";
+      octx.fillText(`#${h.rank} · ${t.cls[h.cls].toUpperCase()}`, x1 + 12, y1 + 13);
+    }
+  }
+
+  // Do not render while the tab is hidden.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    } else if (!raf) {
+      clock.getDelta();
+      raf = requestAnimationFrame(animate);
+    }
+  });
+  raf = requestAnimationFrame(animate);
+}
