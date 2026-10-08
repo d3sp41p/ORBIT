@@ -16,7 +16,12 @@
     "check:cyrillic": "node scripts/check-cyrillic.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:cyrillic",
     "db:migrate": "node scripts/migrate.mjs",
-    "fixtures:capture": "node scripts/capture-fixtures.mjs"
+    "fixtures:capture": "node scripts/capture-fixtures.mjs",
+    "launch": "node scripts/launch.mjs launch",
+    "launch:arm": "node scripts/launch.mjs arm",
+    "launch:status": "node scripts/launch.mjs status",
+    "launch:disarm": "node scripts/launch.mjs disarm",
+    "launch:reset": "node scripts/launch.mjs reset"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

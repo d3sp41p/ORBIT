@@ -3,6 +3,7 @@ export * from "./chain";
 export * from "./demo";
 export * from "./events";
 export * from "./format";
+export * from "./launch";
 export * from "./math";
 export * from "./names";
 export * from "./rng";

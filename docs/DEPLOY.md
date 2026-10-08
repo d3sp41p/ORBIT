@@ -27,9 +27,11 @@
 
 Supabase, Helius, Anthropic. Ключи — только в настройках Vercel/Railway и в локальном `.env.local`, никогда в чат и в код.
 
-## 5. Переменные окружения (этап 4)
+## 5. Переменные окружения
 
 Значения копировать из локального `.env.local`. Ключи никогда не отправлять в чат.
+Адрес монеты, тикер и ссылки в переменные **не** пишутся: они задаются в базе
+командами запуска (раздел 6), сайт и воркер подхватывают их на лету.
 
 **Vercel** (Project → Settings → Environment Variables, окружение Production):
 
@@ -39,8 +41,6 @@ Supabase, Helius, Anthropic. Ключи — только в настройках
 | `SUPABASE_ANON_KEY` | из `.env.local` |
 | `SUPABASE_SERVICE_ROLE_KEY` | из `.env.local` |
 | `HELIUS_WEBHOOK_SECRET` | из `.env.local` |
-| `TOKEN_MINT` | из `.env.local` (пока адрес монеты-стенда) |
-| `TOKEN_LAUNCHED` | `0` (в день запуска — `1`) |
 | `MIN_HOLDING_TOKENS` | `100000` |
 
 После сохранения: Deployments → последний деплой → ⋮ → **Redeploy**.
@@ -48,14 +48,37 @@ Supabase, Helius, Anthropic. Ключи — только в настройках
 **Railway** (сервис воркера → Variables → Raw Editor):
 
 ```
-TOKEN_MINT=...
 HELIUS_API_KEY=...
 SUPABASE_DB_URL=...
+HELIUS_WEBHOOK_SECRET=...
+WEBHOOK_URL=https://orbit-green-chi.vercel.app/api/webhooks/helius
 MIN_HOLDING_TOKENS=100000
-SNAPSHOT_INTERVAL_SEC=900
-BACKFILL_LIMIT=2000
+SNAPSHOT_INTERVAL_SEC=60
+BACKFILL_LIMIT=20000
 ```
 
-`SNAPSHOT_INTERVAL_SEC=900` и `BACKFILL_LIMIT=2000` — экономные значения на время разработки; к запуску: `60` и `20000`.
+`TOKEN_MINT` на Railway не нужен: до запуска воркер ничего не индексирует и не тратит
+кредиты Helius, а после — берёт монету из базы. Стенд (`TOKEN_MINT`) используется только
+локально при разработке.
 
-Проверка: `https://orbit-green-chi.vercel.app/api/health` показывает `"db":"ok"`; в логах Railway — `[indexer] snapshot: ...`.
+Проверка: `https://orbit-green-chi.vercel.app/api/health` показывает `"db":"ok"`;
+в логах Railway — `[worker] started`.
+
+## 6. Запуск монеты
+
+**Автоматически (рекомендуется).** Заранее, до создания монеты:
+
+```
+pnpm launch:arm <dev-кошелёк> <ТИКЕР> "<Название>" [ссылка на X]
+```
+
+Воркер ставит вебхук Helius на dev-кошелёк. Когда с него создаётся монета на pump.fun с
+тем же тикером и названием, система сама: прописывает адрес, очищает данные стенда,
+переводит вебхук на монету, скрывает dev-кошелёк, ставит ссылку Buy на pump.fun и
+загружает историю с первого блока. Сайт показывает адрес монеты в течение ~15 секунд,
+без пересборки.
+
+**Вручную (запасной путь):** `pnpm launch <адрес монеты> [ссылка на X]`.
+
+Состояние: `pnpm launch:status`. Отмена ожидания: `pnpm launch:disarm`.
+Вернуться к стенду (только для разработки): `pnpm launch:reset`.

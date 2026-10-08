@@ -1,8 +1,8 @@
 import pg from "pg";
+import { TokenController } from "./controller";
 import { loadConfig, type WorkerConfig } from "./env";
 import { startHealthServer } from "./health";
 import { Helius } from "./helius";
-import { Indexer } from "./indexer";
 
 const state = { startedAt: new Date() };
 let cfg: WorkerConfig;
@@ -25,7 +25,7 @@ const db = new pg.Pool({
   max: 5,
 });
 const helius = new Helius(cfg!.heliusKey);
-const indexer = new Indexer(db, helius, cfg!);
+const token = new TokenController(db, helius, cfg!);
 
 let stopping = false;
 const timers: NodeJS.Timeout[] = [];
@@ -48,25 +48,18 @@ function every(name: string, sec: number, fn: () => Promise<unknown>) {
   return run();
 }
 
-async function main() {
-  await indexer.init();
-  await indexer.backfillIfEmpty();
-  // Webhook events land in chain_events; apply them within seconds.
-  void every("apply", 5, () => indexer.applyPending());
-  void every("snapshot", cfg!.snapshotSec, () => indexer.snapshot());
-  void every("price", 60, () => indexer.refreshPrice());
-  timers.push(
-    setInterval(
-      () => console.log(`[worker] alive, Helius credits used ~${helius.credits}`),
-      10 * 60_000,
-    ),
-  );
-}
-
-main().catch((e) => {
-  console.error("[worker] fatal:", e);
-  process.exit(1);
-});
+// Token control (config, launch detection, webhook) runs often and may switch
+// the indexer to a new coin; the other loops use whichever indexer is current.
+void every("token", 3, () => token.tick());
+void every("apply", 5, async () => token.indexer?.applyPending());
+void every("snapshot", cfg!.snapshotSec, async () => token.indexer?.snapshot());
+void every("price", 60, async () => token.indexer?.refreshPrice());
+timers.push(
+  setInterval(
+    () => console.log(`[worker] alive, Helius credits used ~${helius.credits}`),
+    10 * 60_000,
+  ),
+);
 
 function shutdown(signal: string) {
   console.log(`[worker] ${signal} received, shutting down`);

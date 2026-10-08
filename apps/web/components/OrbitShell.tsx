@@ -2,19 +2,23 @@
 
 import { useEffect } from "react";
 import { copy as t } from "@/orbit/copy";
-import { brand } from "@/orbit/env";
+import type { PublicToken } from "@/lib/token";
 
 /**
  * HUD markup for the system view. The 3D engine (orbit/app.ts) attaches to
  * these elements by id after mount, so the shell itself renders on the server.
  */
-export default function OrbitShell() {
+export default function OrbitShell({ token }: { token: PublicToken }) {
   useEffect(() => {
     const m = location.pathname.match(/^\/planet\/([^/]+)/);
     const initialWallet = m ? decodeURIComponent(m[1]!) : null;
     const params = new URLSearchParams(location.search);
     const debug = params.has("debug");
-    import("@/orbit/app").then(({ start }) => start({ initialWallet, debug, overrides: params }));
+    import("@/orbit/app").then(({ start }) =>
+      start({ initialWallet, debug, overrides: params, token }),
+    );
+    // The engine starts once per page load; token facts come with that load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -49,7 +53,7 @@ export default function OrbitShell() {
             <circle cx="27.4" cy="11.2" r="1.7" fill="#fc3d21" />
           </svg>
           <span>
-            <b id="brandName">{brand.name}</b>
+            <b id="brandName">{token.name}</b>
             <small>{t.agency}</small>
           </span>
         </a>
@@ -82,17 +86,17 @@ export default function OrbitShell() {
         <a className="btn" href="/rules">
           {t.rules}
         </a>
-        <a className="btn" id="xLink" href={brand.xUrl} target="_blank" rel="noopener noreferrer">
+        <a className="btn" id="xLink" href={token.xUrl} target="_blank" rel="noopener noreferrer">
           X
         </a>
         <a
           className="btn primary"
           id="buyLink"
-          href={brand.buyUrl}
+          href={token.buyUrl}
           target="_blank"
           rel="noopener noreferrer"
         >
-          {t.buy(brand.ticker)}
+          {t.buy(token.ticker)}
         </a>
       </header>
 

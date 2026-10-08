@@ -5,7 +5,14 @@
  * repeated webhook never creates a second event. The worker applies them.
  */
 import { timingSafeEqual } from "node:crypto";
-import { chainEvents, parseAddressList, toChainTx, type ChainEvent } from "@orbit/core";
+import {
+  chainEvents,
+  feePayer,
+  parseAddressList,
+  toChainTx,
+  type ChainEvent,
+  type RawLaunchTx,
+} from "@orbit/core";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +35,31 @@ async function supabase(path: string, init: RequestInit) {
   return fetch(`${url}/rest/v1/${path}`, { ...init, headers: { ...headers, ...init.headers } });
 }
 
+interface TokenConfig {
+  mint: string | null;
+  armed: boolean;
+  dev_wallet: string | null;
+  excluded_wallets: string[];
+  included_wallets: string[];
+}
+
+/** token_config, cached briefly: webhooks can arrive many times a second. */
+let cached: { at: number; value: TokenConfig | null } | null = null;
+async function tokenConfig(): Promise<TokenConfig | null> {
+  if (cached && Date.now() - cached.at < 5000) return cached.value;
+  const res = await supabase(
+    "token_config?id=eq.1&select=mint,armed,dev_wallet,excluded_wallets,included_wallets",
+    { method: "GET" },
+  );
+  const value = res.ok ? (((await res.json()) as TokenConfig[])[0] ?? null) : null;
+  cached = { at: Date.now(), value };
+  return value;
+}
+
 export async function POST(req: Request) {
   const secret = process.env.HELIUS_WEBHOOK_SECRET;
-  const mint = process.env.TOKEN_MINT;
   const missing = Object.entries({
     HELIUS_WEBHOOK_SECRET: secret,
-    TOKEN_MINT: mint,
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   })
@@ -41,7 +67,7 @@ export async function POST(req: Request) {
     .map(([k]) => k);
   if (missing.length)
     return error(503, "not_configured", `Webhook is not configured: ${missing.join(", ")}`);
-  if (!secret || !mint) return error(503, "not_configured", "Webhook is not configured");
+  if (!secret) return error(503, "not_configured", "Webhook is not configured");
   if (!secretMatches(req.headers.get("authorization"), secret))
     return error(401, "unauthorized", "Bad webhook secret");
 
@@ -52,15 +78,48 @@ export async function POST(req: Request) {
     return error(400, "bad_json", "Body is not JSON");
   }
   const items = Array.isArray(body) ? body : [body];
+  const cfg = await tokenConfig();
+  // The coin from the database; TOKEN_MINT (stand-in) only in development.
+  const mint = cfg?.mint ?? process.env.TOKEN_MINT ?? null;
+
+  // Armed for launch: keep the dev wallet's own transactions for the worker.
+  let watched = 0;
+  if (cfg?.armed && cfg.dev_wallet) {
+    const mine = items.filter((it) => {
+      try {
+        return feePayer(it as RawLaunchTx) === cfg.dev_wallet;
+      } catch {
+        return false;
+      }
+    });
+    if (mine.length) {
+      const res = await supabase("launch_inbox?on_conflict=sig", {
+        method: "POST",
+        headers: { prefer: "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify(
+          mine.map((it) => ({ sig: (it as RawLaunchTx).transaction.signatures[0], raw: it })),
+        ),
+      });
+      if (!res.ok) return error(502, "db_error", `Database rejected launch data (${res.status})`);
+      watched = mine.length;
+    }
+  }
+
   const exclusions = {
-    excluded: parseAddressList(process.env.EXCLUDED_WALLETS),
-    included: parseAddressList(process.env.INCLUDED_WALLETS),
+    excluded: new Set([
+      ...parseAddressList(process.env.EXCLUDED_WALLETS),
+      ...(cfg?.excluded_wallets ?? []),
+    ]),
+    included: new Set([
+      ...parseAddressList(process.env.INCLUDED_WALLETS),
+      ...(cfg?.included_wallets ?? []),
+    ]),
   };
   const events: ChainEvent[] = [];
-  for (const item of items) {
+  for (const item of mint ? items : []) {
     try {
       events.push(
-        ...chainEvents(toChainTx(item as Parameters<typeof toChainTx>[0]), mint, exclusions),
+        ...chainEvents(toChainTx(item as Parameters<typeof toChainTx>[0]), mint!, exclusions),
       );
     } catch {
       // not a transaction we understand: skip it, keep the rest
@@ -93,5 +152,5 @@ export async function POST(req: Request) {
     headers: { prefer: "return=minimal" },
     body: JSON.stringify({ last_webhook_at: new Date().toISOString() }),
   });
-  return Response.json({ ok: true, transactions: items.length, events: events.length });
+  return Response.json({ ok: true, transactions: items.length, events: events.length, watched });
 }

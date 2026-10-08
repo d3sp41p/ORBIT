@@ -11,7 +11,7 @@ import {
 } from "@orbit/core";
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { copy, rulesCopy as R } from "@/orbit/copy";
-import { brand } from "@/orbit/env";
+import type { PublicToken } from "@/lib/token";
 import s from "./rules.module.css";
 
 /**
@@ -154,7 +154,7 @@ function HeroOrbits() {
   );
 }
 
-function HoldGauge() {
+function HoldGauge({ brand }: { brand: PublicToken }) {
   const min = brand.minHolding;
   const r = R.rules.entry;
   return (
@@ -480,7 +480,7 @@ function StarTiers() {
 
 /* ================= page ================= */
 
-export default function RulesPage() {
+export default function RulesPage({ token: brand }: { token: PublicToken }) {
   const root = useReveal();
   const min = fmtInt(brand.minHolding);
   const r = R.rules;
@@ -561,7 +561,7 @@ export default function RulesPage() {
           title={r.entry.title}
           lead={r.entry.lead(min, brand.ticker)}
           points={r.entry.points(min)}
-          visual={<HoldGauge />}
+          visual={<HoldGauge brand={brand} />}
         />
         <Rule
           id="size"

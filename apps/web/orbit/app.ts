@@ -33,8 +33,8 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import type { PublicToken } from "@/lib/token";
 import { copy as t } from "./copy";
-import { brand } from "./env";
 import {
   agoText,
   eraLabel,
@@ -85,11 +85,14 @@ export interface StartOptions {
   /** Wallet from /planet/<wallet>; the camera flies to it after load. */
   initialWallet?: string | null;
   debug?: boolean;
+  /** Public token facts (ticker, contract, links) read on the server. */
+  token: PublicToken;
   /** Debug-only render overrides from the URL, e.g. ?debug&bloom=0&dpr=1 */
   overrides?: URLSearchParams;
 }
 
-export function start(opts: StartOptions = {}) {
+export function start(opts: StartOptions) {
+  const brand = opts.token;
   if (started) return;
   started = true;
 

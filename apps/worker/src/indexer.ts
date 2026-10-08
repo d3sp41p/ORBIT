@@ -21,8 +21,15 @@ import {
   type LedgerWithSlot,
 } from "@orbit/core";
 import type { Pool, PoolClient } from "pg";
-import type { WorkerConfig } from "./env";
+import type { Exclusions } from "@orbit/core";
 import type { Helius } from "./helius";
+
+export interface IndexerOptions {
+  mint: string;
+  exclusions: Exclusions;
+  minHoldingTokens: number;
+  backfillLimit: number;
+}
 
 const log = (...a: unknown[]) => console.log("[indexer]", ...a);
 
@@ -59,7 +66,7 @@ export class Indexer {
   constructor(
     private readonly db: Pool,
     private readonly helius: Helius,
-    private readonly cfg: WorkerConfig,
+    private readonly cfg: IndexerOptions,
   ) {}
 
   async init() {
@@ -290,15 +297,11 @@ export class Indexer {
   }
 
   /**
-   * First start: restore history from the newest transactions back to the
-   * mint's creation (or backfillLimit), so hold starts and sells are known.
+   * Restore history from the newest transactions back to the mint's creation
+   * (or backfillLimit), so hold starts and sells are known. Idempotent.
    */
-  async backfillIfEmpty() {
-    const { rows } = await this.db.query<{ n: string }>(
-      `select count(*)::text as n from chain_events`,
-    );
-    if (rows[0]!.n !== "0") return;
-    log(`empty database: restoring history (up to ${this.cfg.backfillLimit} transactions)`);
+  async backfill() {
+    log(`restoring history (up to ${this.cfg.backfillLimit} transactions)`);
     const sigs: string[] = [];
     let before: string | undefined;
     while (sigs.length < this.cfg.backfillLimit) {

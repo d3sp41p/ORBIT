@@ -12,13 +12,57 @@ export interface TokenAccount {
   amount: bigint;
 }
 
+export interface WebhookSpec {
+  webhookURL: string;
+  accountAddresses: string[];
+  authHeader: string;
+}
+
 export class Helius {
   private readonly url: string;
+  private readonly apiKey: string;
   /** Credits spent by this process (approximate, from the published price list). */
   credits = 0;
 
   constructor(apiKey: string) {
+    this.apiKey = apiKey;
     this.url = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+  }
+
+  /** Token metadata (DAS getAsset, 10 credits). */
+  async getAsset(id: string) {
+    const a = await this.rpc<{ content?: { metadata?: { name?: string; symbol?: string } } }>(
+      "getAsset",
+      { id },
+      10,
+    );
+    return { name: a.content?.metadata?.name ?? null, symbol: a.content?.metadata?.symbol ?? null };
+  }
+
+  /** Create or update the raw webhook; returns its id. */
+  async upsertWebhook(id: string | null, spec: WebhookSpec): Promise<string> {
+    const body = JSON.stringify({ ...spec, transactionTypes: ["ANY"], webhookType: "raw" });
+    const url = id
+      ? `https://api.helius.xyz/v0/webhooks/${id}?api-key=${this.apiKey}`
+      : `https://api.helius.xyz/v0/webhooks?api-key=${this.apiKey}`;
+    const res = await fetch(url, {
+      method: id ? "PUT" : "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+    if (!res.ok)
+      throw new Error(
+        `webhook ${id ? "update" : "create"}: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`,
+      );
+    const j = (await res.json()) as { webhookID: string };
+    return j.webhookID;
+  }
+
+  async deleteWebhook(id: string) {
+    const res = await fetch(`https://api.helius.xyz/v0/webhooks/${id}?api-key=${this.apiKey}`, {
+      method: "DELETE",
+    });
+    if (!res.ok && res.status !== 404) throw new Error(`webhook delete: HTTP ${res.status}`);
   }
 
   async rpc<T>(method: string, params: unknown, cost = 1): Promise<T> {

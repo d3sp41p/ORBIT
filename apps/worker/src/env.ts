@@ -16,7 +16,8 @@ function required(name: string): string {
 
 export interface WorkerConfig {
   port: number;
-  mint: string;
+  /** Fallback mint when token_config has none (stand-in in development). */
+  mint: string | null;
   heliusKey: string;
   dbUrl: string;
   minHoldingTokens: number;
@@ -25,12 +26,15 @@ export interface WorkerConfig {
   snapshotSec: number;
   /** Max transactions to read when restoring history on first start. */
   backfillLimit: number;
+  /** Public URL of the site's webhook route; the worker manages the Helius webhook. */
+  webhookUrl: string | null;
+  webhookSecret: string | null;
 }
 
 export function loadConfig(): WorkerConfig {
   return {
     port: Number(process.env.PORT ?? 8080),
-    mint: required("TOKEN_MINT"),
+    mint: process.env.TOKEN_MINT?.trim() || null,
     heliusKey: required("HELIUS_API_KEY"),
     dbUrl: required("SUPABASE_DB_URL"),
     minHoldingTokens: Number(process.env.MIN_HOLDING_TOKENS) || 100_000,
@@ -40,5 +44,7 @@ export function loadConfig(): WorkerConfig {
     },
     snapshotSec: Number(process.env.SNAPSHOT_INTERVAL_SEC) || 60,
     backfillLimit: Number(process.env.BACKFILL_LIMIT) || 20_000,
+    webhookUrl: process.env.WEBHOOK_URL?.trim() || null,
+    webhookSecret: process.env.HELIUS_WEBHOOK_SECRET?.trim() || null,
   };
 }
