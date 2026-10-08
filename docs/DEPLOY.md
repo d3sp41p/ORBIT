@@ -15,12 +15,12 @@
 
 ## 3. Railway — воркер
 
-1. railway.com → **New Project → Deploy from GitHub repo** → тот же репозиторий.
-2. В настройках сервиса:
-   - **Root Directory:** оставить пустым (корень репозитория — нужен для монорепо).
-   - Config подхватывается сам из `railway.json` в корне репозитория (если в **Config-as-code** что-то вписано — очистить).
-     Там указаны `apps/worker/Dockerfile`, healthcheck `/health` и перезапуск при падении.
-3. **Settings → Networking → Generate Domain** (порт 8080), чтобы открыть `/health` снаружи.
+1. railway.com/new → **Deploy from GitHub repo** → `d3sp41p/ORBIT`.
+2. Настраивать сборку не нужно: Railway сам находит `Dockerfile` в корне репозитория (это образ воркера).
+   **Root Directory** и **Config-as-code** оставить пустыми (Config as Code у Railway устарел).
+3. Клик по карточке сервиса → **Settings**:
+   - **Deploy → Healthcheck Path:** `/health` (необязательно);
+   - **Networking → Generate Domain**, порт `8080`.
 4. Проверка: в логах `[worker] started on :8080`, раз в минуту `[worker] alive ...`; `https://<домен>/health` отдаёт `{"status":"ok",...}`.
 
 ## 4. Остальные аккаунты (понадобятся с этапа 4)
