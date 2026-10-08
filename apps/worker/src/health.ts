@@ -2,6 +2,11 @@ import { createServer, type Server } from "node:http";
 
 export interface HealthState {
   startedAt: Date;
+  /** What the indexer is doing (no secrets: names of missing settings at most). */
+  indexer?: string;
+  /** Whether the worker can manage the Helius webhook. */
+  webhook?: string;
+  heliusCredits?: () => number;
 }
 
 export function healthBody(state: HealthState, now = new Date()) {
@@ -10,6 +15,9 @@ export function healthBody(state: HealthState, now = new Date()) {
     service: "orbit-worker",
     startedAt: state.startedAt.toISOString(),
     uptimeSeconds: Math.floor((now.getTime() - state.startedAt.getTime()) / 1000),
+    indexer: state.indexer ?? "starting",
+    webhook: state.webhook ?? "unknown",
+    heliusCredits: state.heliusCredits?.() ?? 0,
   };
 }
 

@@ -1,16 +1,17 @@
 import pg from "pg";
 import { TokenController } from "./controller";
 import { loadConfig, type WorkerConfig } from "./env";
-import { startHealthServer } from "./health";
+import { startHealthServer, type HealthState } from "./health";
 import { Helius } from "./helius";
 
-const state = { startedAt: new Date() };
+const state: HealthState = { startedAt: new Date() };
 let cfg: WorkerConfig;
 try {
   cfg = loadConfig();
 } catch (e) {
   // Missing settings must not crash-loop the host: stay up for health checks.
   const port = Number(process.env.PORT ?? 8080);
+  state.indexer = `disabled: ${e instanceof Error ? e.message : e}`;
   startHealthServer(port, state);
   console.error(`[worker] indexer disabled: ${e instanceof Error ? e.message : e}`);
   setInterval(() => console.error("[worker] indexer disabled: configuration missing"), 10 * 60_000);
@@ -25,7 +26,12 @@ const db = new pg.Pool({
   max: 5,
 });
 const helius = new Helius(cfg!.heliusKey);
-const token = new TokenController(db, helius, cfg!);
+const token = new TokenController(db, helius, cfg!, state);
+state.webhook =
+  cfg!.webhookUrl && cfg!.webhookSecret
+    ? "ready"
+    : "not managed (WEBHOOK_URL or HELIUS_WEBHOOK_SECRET missing)";
+state.heliusCredits = () => helius.credits;
 
 let stopping = false;
 const timers: NodeJS.Timeout[] = [];

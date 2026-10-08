@@ -10,6 +10,7 @@
 import { launchCandidates, matchesExpected, pumpFunUrl, type RawLaunchTx } from "@orbit/core";
 import type { Pool } from "pg";
 import type { WorkerConfig } from "./env";
+import type { HealthState } from "./health";
 import type { Helius } from "./helius";
 import { Indexer } from "./indexer";
 
@@ -58,6 +59,7 @@ export class TokenController {
     private readonly db: Pool,
     private readonly helius: Helius,
     private readonly cfg: WorkerConfig,
+    private readonly health: HealthState,
   ) {}
 
   private async config(): Promise<TokenConfigRow> {
@@ -72,6 +74,13 @@ export class TokenController {
       if (await this.processLaunchInbox(c)) c = await this.config();
     }
     const mint = c.mint ?? this.cfg.mint;
+    this.health.indexer = c.launched
+      ? `launched: indexing ${c.ticker ?? "the coin"}`
+      : c.armed
+        ? "armed: waiting for the coin to be created"
+        : mint
+          ? "indexing a stand-in token (development)"
+          : "idle: no coin yet";
     // Webhook and public facts first: at launch they must not wait for the history.
     await this.publish(c, mint);
     await this.syncWebhook(c, mint);
