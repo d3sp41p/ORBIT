@@ -92,3 +92,24 @@ pnpm launch:arm <dev-кошелёк> <ТИКЕР> "<Название>" [ссыл
 
 Состояние: `pnpm launch:status`. Отмена ожидания: `pnpm launch:disarm`.
 Вернуться к стенду (только для разработки): `pnpm launch:reset`.
+
+## 7. Мониторинг и бэкапы
+
+**Health.** `https://www.orbit.mba/api/health` отдаёт состояние: последний вебхук, последняя
+сверка, отставание тиков, очередь ИИ и расход за сегодня, отчёт воркера. При проблеме отвечает
+кодом **503** (после запуска: тики опаздывают больше 30 минут, сверки не было 15 минут, копятся
+события сети; всегда: воркер не отвечает). В Vercel добавить переменную
+`WORKER_HEALTH_URL=https://acceptable-vitality-production-8bec.up.railway.app/health`.
+
+**UptimeRobot** (бесплатно): монитор HTTP(s) на `https://www.orbit.mba/api/health`, интервал
+5 минут, уведомления на почту владельца. 503 = тревога.
+
+**Бэкап базы** (`.github/workflows/backup.yml`): каждую ночь в 03:17 UTC дамп схемы `public`,
+зашифрованный AES-256, хранится 14 дней в артефактах GitHub Actions. Нужны секреты репозитория
+(Settings → Secrets and variables → Actions): `SUPABASE_DB_URL` и `BACKUP_PASSPHRASE` (длинный
+пароль; хранить отдельно, без него бэкап не открыть). Запустить вручную: Actions → Database
+backup → Run workflow.
+
+Восстановление: скачать артефакт, затем
+`gpg -d orbit-ДАТА.dump.gpg > orbit.dump` и
+`pg_restore --clean --if-exists --no-owner -d "$SUPABASE_DB_URL" orbit.dump`.
