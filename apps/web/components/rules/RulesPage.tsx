@@ -496,7 +496,7 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
       <div className={s.sky} aria-hidden="true" />
       <header className={s.top}>
         <HomeLink className={s.brand}>
-          <Image className={s.logo} src="/logo.jpg" alt="" width={40} height={40} priority />
+          <Image className={s.logo} src="/logo.png" alt="" width={40} height={40} priority />
           <span>
             <b>{brand.name}</b>
             <small>{copy.agency}</small>

@@ -28,7 +28,7 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
       <canvas id="ov" />
       <div id="loading">
         <div className="ld">
-          <Image className="ld-logo" src="/logo.jpg" alt="" width={84} height={84} priority />
+          <Image className="ld-logo" src="/logo.png" alt="" width={84} height={84} priority />
           <b>ORBIT DSN</b>
           <i />
           <span id="ldText">{t.loading}</span>
@@ -39,7 +39,7 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         {/* Plain link on purpose: the engine intercepts the click and flies back to the overview. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a className="brand" href="/" id="brandLink">
-          <Image className="brand-logo" src="/logo.jpg" alt="" width={40} height={40} priority />
+          <Image className="brand-logo" src="/logo.png" alt="" width={40} height={40} priority />
           <span>
             <b id="brandName">{token.name}</b>
             <small>{t.agency}</small>

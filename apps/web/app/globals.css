@@ -1226,19 +1226,15 @@ dl.kv dd.num {
   }
 }
 
-/* logo: its dark backdrop melts into the black page */
+/* logo: a cut-out planet on a transparent background */
 .brand-logo {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   flex: none;
-  border-radius: 50%;
-  mix-blend-mode: screen;
 }
 .ld-logo {
   width: 84px;
   height: 84px;
-  border-radius: 50%;
-  mix-blend-mode: screen;
   margin-bottom: 6px;
   animation: ldGlow 2.4s ease-in-out infinite;
 }
