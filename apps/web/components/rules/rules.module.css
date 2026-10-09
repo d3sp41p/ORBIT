@@ -123,6 +123,8 @@
   padding: 10px 14px;
   text-decoration: none;
   white-space: nowrap;
+  background: transparent;
+  cursor: pointer;
 }
 .btn:hover {
   border-color: #fff;

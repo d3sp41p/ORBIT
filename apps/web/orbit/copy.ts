@@ -47,6 +47,7 @@ export const copy = {
   menu: "Menu",
   rulesLink: "Read the mission rules",
   buy: (ticker: string) => `Buy $${ticker}`,
+  buySoon: "Opens at launch",
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   zoomFit: "Show whole system",

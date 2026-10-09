@@ -13,6 +13,8 @@ export default defineConfig({
   testMatch: "*.e2e.ts",
   timeout: 120_000,
   retries: ci ? 1 : 0,
+  // Several 3D pages at once starve a desktop GPU; CI machines handle their own share.
+  workers: ci ? undefined : 1,
   reporter: ci ? "list" : "line",
   use: { baseURL: "http://localhost:3000" },
   projects: ci

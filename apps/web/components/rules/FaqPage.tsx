@@ -2,6 +2,7 @@
 
 import { BALANCE } from "@orbit/core";
 import Image from "next/image";
+import BuyLink from "@/components/BuyLink";
 import { copy, faqCopy as F } from "@/orbit/copy";
 import type { PublicToken } from "@/lib/token";
 import { HomeLink, useReveal } from "./RulesPage";
@@ -41,14 +42,7 @@ export default function FaqPage({ token: brand }: { token: PublicToken }) {
         <a className={s.btn} href="/rules">
           {copy.rules}
         </a>
-        <a
-          className={`${s.btn} ${s.primary}`}
-          href={brand.buyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {copy.buy(brand.ticker)}
-        </a>
+        <BuyLink token={brand} className={`${s.btn} ${s.primary}`} />
       </header>
 
       <main className={s.main}>

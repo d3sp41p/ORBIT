@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import BuyLink from "@/components/BuyLink";
 import { copy as t } from "@/orbit/copy";
 import type { PublicToken } from "@/lib/token";
 
@@ -130,15 +131,7 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         >
           {menu ? t.close : t.menu}
         </button>
-        <a
-          className="btn primary"
-          id="buyLink"
-          href={token.buyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t.buy(token.ticker)}
-        </a>
+        <BuyLink token={token} className="btn primary" id="buyLink" />
       </header>
 
       <section className="hud hero" id="hero">
@@ -165,16 +158,6 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         {}
         <a className="rules-link" href="/rules">
           {t.rulesLink} <span aria-hidden="true">→</span>
-        </a>
-        <a
-          className="claude-badge"
-          href={t.claude.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t.claude.note}
-        >
-          <span className="spark" aria-hidden="true" />
-          {t.claude.badge}
         </a>
       </section>
 

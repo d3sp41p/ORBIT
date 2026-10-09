@@ -114,3 +114,14 @@ test("wallet picker shows Solana wallets and never mentions a transaction to sig
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
+
+test("Buy waits for the launch instead of opening a page", async ({ page }) => {
+  await page.goto("/faq");
+  // Wait until React has attached its handlers to the server-rendered button.
+  await page.waitForLoadState("networkidle");
+  const buy = page.locator("header button");
+  await expect(buy).toHaveText("Buy $ORBIT");
+  await buy.click();
+  await expect(buy).toHaveText("Opens at launch");
+  expect(page.context().pages()).toHaveLength(1);
+});

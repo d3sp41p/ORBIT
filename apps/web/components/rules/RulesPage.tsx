@@ -10,6 +10,7 @@ import {
   type PlanetClass,
 } from "@orbit/core";
 import Image from "next/image";
+import BuyLink from "@/components/BuyLink";
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { copy, rulesCopy as R } from "@/orbit/copy";
 import type { PublicToken } from "@/lib/token";
@@ -522,14 +523,7 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
         <HomeLink className={s.btn} aria-label={R.back}>
           <span aria-hidden="true">←</span> <span className={s.backText}>{R.back}</span>
         </HomeLink>
-        <a
-          className={`${s.btn} ${s.primary}`}
-          href={brand.buyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {copy.buy(brand.ticker)}
-        </a>
+        <BuyLink token={brand} className={`${s.btn} ${s.primary}`} />
       </header>
 
       <main className={s.main}>
