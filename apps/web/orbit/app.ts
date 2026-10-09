@@ -126,9 +126,11 @@ export async function start(opts: StartOptions) {
   let star: StarInfo = first.star;
   // The visitor’s wallet: "Connect wallet", "My planet" and the owner forms.
   const account = mountAccount($("acct"), {
-    onMyPlanet: () => {
+    onMyPlanet: async () => {
       const w = account.me.wallet;
-      const h = w ? byWallet.get(w) : undefined;
+      if (!w) return;
+      // A planet born seconds ago may not be in the scene yet: reload once.
+      const h = byWallet.get(w) ?? ((await source.refresh()) && byWallet.get(w));
       if (h) focus(h);
       else account.toast(t.noPlanetYet(brand.ticker, fmt(brand.minHolding)));
     },
@@ -1346,14 +1348,15 @@ export async function start(opts: StartOptions) {
       );
     return h;
   }
-  $("searchForm").addEventListener("submit", (e) => {
+  $("searchForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = searchInput.value.trim();
     if (!q) {
       helpDefault();
       return;
     }
-    const h = findBody(q);
+    // Not in the scene yet (a planet born seconds ago)? Reload once and look again.
+    const h = findBody(q) ?? ((await source.refresh()) && findBody(q));
     if (h) {
       helpDefault();
       focus(h);

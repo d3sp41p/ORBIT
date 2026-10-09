@@ -78,7 +78,7 @@ export async function liveAllowed(req: Request): Promise<boolean> {
 /** Whether the coin is live (real data is public). */
 export async function launched(): Promise<boolean> {
   const { rows } = await select<{ launched: boolean }>("system_state?id=eq.1&select=launched", {
-    revalidate: 15,
+    revalidate: 5,
   });
   return !!rows[0]?.launched;
 }

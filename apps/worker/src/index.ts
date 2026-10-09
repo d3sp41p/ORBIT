@@ -82,11 +82,12 @@ function every(name: string, sec: number, fn: () => Promise<unknown>) {
 // Token control (config, launch detection, webhook) runs often and may switch
 // the indexer to a new coin; the other loops use whichever indexer is current.
 void every("token", 3, () => token.tick());
-void every("apply", 5, async () => token.indexer?.applyPending());
+// Fast loops: a buyer should see their planet within seconds of the purchase.
+void every("apply", 2, async () => token.indexer?.applyPending());
 void every("snapshot", cfg!.snapshotSec, async () => token.indexer?.snapshot());
 void every("price", 60, async () => token.indexer?.refreshPrice());
 // Planet life: births and deaths follow the holders; due ticks are caught up in batches.
-void every("lifecycle", 10, async () => token.indexer && (await planets.lifecycle()));
+void every("lifecycle", 3, async () => token.indexer && (await planets.lifecycle()));
 void every("ticks", 30, async () => {
   if (!token.indexer) return;
   while ((await planets.ticks()) === 100 && !stopping);

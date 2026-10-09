@@ -81,6 +81,8 @@ export interface DataSource {
   moreNews(wallet: string, cursor: string): Promise<{ items: NewsItem[]; next: string | null }>;
   feed(): Promise<FeedItem[]>;
   start(l: Listeners): void;
+  /** Reload the scene now (a new planet may have formed). Null when unchanged or unknown. */
+  refresh(): Promise<SceneData | null>;
 }
 
 /* ================= live ================= */
@@ -177,16 +179,35 @@ export class LiveSource implements DataSource {
     }, 20_000);
   }
 
+  private listeners: Listeners | null = null;
+  private lastRefresh = 0;
+  private refreshTimer = 0;
+
+  async refresh(): Promise<SceneData | null> {
+    this.lastRefresh = Date.now();
+    try {
+      const d = await this.probe();
+      if (d) this.listeners?.onScene(d);
+      return d;
+    } catch {
+      return null; // keep the last known state
+    }
+  }
+
+  /** A new planet formed: reload soon, at most once every 8 seconds. */
+  private refreshSoon() {
+    if (this.refreshTimer) return;
+    const wait = Math.max(2500, this.lastRefresh + 8000 - Date.now());
+    this.refreshTimer = window.setTimeout(() => {
+      this.refreshTimer = 0;
+      void this.refresh();
+    }, wait);
+  }
+
   start(l: Listeners) {
-    // Visuals, ranks and new planets: refresh the scene every minute.
-    setInterval(async () => {
-      try {
-        const d = await this.probe();
-        if (d) l.onScene(d);
-      } catch {
-        // keep the last known state; try again next minute
-      }
-    }, 60_000);
+    this.listeners = l;
+    // Visuals, ranks and new planets; new planets also trigger a reload at once.
+    setInterval(() => void this.refresh(), 20_000);
     if (!this.supabase) return this.poll(l, true);
     const client = createClient(this.supabase.url, this.supabase.anonKey, {
       auth: { persistSession: false },
@@ -207,6 +228,8 @@ export class LiveSource implements DataSource {
             notable: boolean;
           };
           l.onPlanetEvent(r.wallet);
+          // An event of a planet the scene does not have yet: it was just born.
+          if (!this.names.has(r.wallet)) this.refreshSoon();
           if (!r.notable) return;
           this.seen.add(String(r.id));
           const p = this.names.get(r.wallet);
@@ -369,8 +392,21 @@ export class DemoSource implements DataSource {
     return items.sort((a, b) => b.at - a.at).slice(0, 12);
   }
 
+  async refresh() {
+    return null;
+  }
+
   /** The demo simulates in the browser (the prototype's behaviour). */
   start(l: Listeners) {
+    // When the coin launches, pages opened before switch to the live system.
+    window.setInterval(async () => {
+      try {
+        const j = (await (await fetch("/api/system")).json()) as { live?: boolean };
+        if (j.live) location.reload();
+      } catch {
+        // offline for a moment: ask again later
+      }
+    }, 30_000);
     setInterval(() => {
       const now = Date.now();
       let changed = false;
