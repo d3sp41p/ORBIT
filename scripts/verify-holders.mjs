@@ -9,7 +9,7 @@ import pg from "pg";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 dotenv.config({ path: join(root, ".env.local"), quiet: true });
-const { SUPABASE_DB_URL, HELIUS_API_KEY, TOKEN_MINT } = process.env;
+const { SUPABASE_DB_URL, HELIUS_API_KEY } = process.env;
 const count = Number(process.argv[2] || 20);
 const rpcUrl = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
 
@@ -26,6 +26,11 @@ async function rpc(method, params) {
 
 const db = new pg.Client({ connectionString: SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
 await db.connect();
+// The coin the worker indexes now (token_config), not the stand-in of .env.local.
+const mint = (await db.query(`select indexed_mint from token_config where id = 1`)).rows[0]
+  ?.indexed_mint;
+if (!mint) throw new Error("the worker indexes no coin right now");
+console.log(`coin ${mint}`);
 const { rows } = await db.query(
   `select wallet, balance::text, rank, last_slot::text from holders
    where status = 'alive' order by random() limit $1`,
@@ -35,7 +40,7 @@ let ok = 0;
 for (const h of rows) {
   const res = await rpc("getTokenAccountsByOwner", [
     h.wallet,
-    { mint: TOKEN_MINT },
+    { mint },
     { encoding: "jsonParsed", commitment: "confirmed" },
   ]);
   const chain = res.value.reduce(
