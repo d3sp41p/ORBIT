@@ -32,6 +32,19 @@ export async function select<T>(
   return { rows: (await res.json()) as T[], total: Number.isFinite(total) ? total : null };
 }
 
+/** Call a database function open to the anon role (no cache). */
+export async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const { url, key } = conf();
+  const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: key, "content-type": "application/json" },
+    body: JSON.stringify(args),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new DbError(`${res.status} ${await res.text()}`);
+  return (await res.json()) as T;
+}
+
 /** All rows of a query, page by page (the API returns at most 1,000 at a time). */
 export async function selectAll<T>(path: string, revalidate?: number): Promise<T[]> {
   const out: T[] = [];

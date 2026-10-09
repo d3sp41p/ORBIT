@@ -159,6 +159,7 @@ export function planetPanelHTML(
   news: NewsItem[],
   hasMore: boolean,
   sys: Pick<SystemInfo, "ticker">,
+  live = true,
 ) {
   const S = c.state,
     era = S.era,
@@ -235,6 +236,10 @@ export function planetPanelHTML(
   const civ = B
     ? `<dl class="kv"><dt>${t.speciesL}</dt><dd>${esc(B.species)}</dd><dt>${t.typeL}</dt><dd>${W.ctypes[B.ct]}</dd><dt>${t.lookL}</dt><dd>${cap1(W.looks[B.look]!)}</dd><dt>${t.capitalL}</dt><dd>${esc(B.capital)}</dd><dt>${t.ideologyL}</dt><dd>${cap1(W.ideology[B.ideo]!)}</dd><dt>${t.mottoL}</dt><dd>«${esc(W.motto[B.motto])}»</dd></dl>`
     : `<p class="empty">${t.civNone}</p>`;
+  const lore = B && c.lore ? `<p class="lore">${esc(c.lore)}</p>` : "";
+  const report = c.chronicle
+    ? `<p>${esc(c.chronicle.text)}</p><div class="hint">${t.aiCredit(stamp(c.chronicle.at))}</div>`
+    : `<div class="hint">${live ? t.aiPending : t.aiDemo}</div>`;
   const finds = c.finds.length
     ? `<div class="badges">${c.finds.map((f) => `<div class="badge rare"><b>${W.finds[f.f]![0]}</b><small>${t.dayN(Math.floor(f.day))}</small></div>`).join("")}</div>`
     : `<p class="empty">${t.findsNone}</p>`;
@@ -258,8 +263,9 @@ export function planetPanelHTML(
     <section class="sec"><h3>${t.fastFacts}</h3><dl class="facts">${facts}</dl>
       <div class="stab"><div class="stab-row"><span>${t.stab}</span><b>${stab} / 100</b></div><div class="bar"><i style="width:${stab}%;background:${stabColor}"></i></div><p>${t.stabHint}</p></div></section>
     <section class="sec"><h3>${t.newsH}<span>${c.newsTotal}</span></h3><ol class="press" id="pressList">${news.length ? newsListHTML(news) : `<li><p class="empty">${t.newsNone}</p></li>`}</ol>${hasMore ? `<button class="more" id="moreNews">${t.newsMore}</button>` : ""}</section>
+    <div class="report"><h3>${t.aiH}</h3>${report}</div>
     <section class="sec"><h3>${t.timelineH}</h3><ol class="tl">${tl}</ol></section>
-    <section class="sec"><h3>${t.civH}</h3>${civ}</section>
+    <section class="sec"><h3>${t.civH}</h3>${civ}${lore}</section>
     <section class="sec"><h3>${t.findsH}</h3>${finds}</section>
     <section class="sec"><h3>${t.holderH}</h3><dl class="kv"><dt>${t.tokens}</dt><dd class="num">${fmt(tokens)} $${esc(sys.ticker)}</dd><dt>${t.since}</dt><dd class="num">${fdate(c.holdStartedAt)} · ${heldFor}</dd><dt>${t.buysSells}</dt><dd class="num">${c.buys} / ${c.sells}</dd><dt>${t.rankL}</dt><dd class="num">#${c.rank} ${ofN}</dd><dt>${t.orbitNo}</dt><dd class="num">#${c.timeRank} ${ofN}</dd></dl></section>
     <section class="sec" style="border-bottom:0"><h3>${t.achievements}</h3><div class="badges">${t.badges.map((b, i) => `<div class="badge ${bon[i] ? "on" : "off"}"><b>${b[0]}</b><small>${b[1]}</small></div>`).join("")}</div></section>`;

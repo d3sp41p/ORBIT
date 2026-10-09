@@ -113,6 +113,11 @@ export const copy = {
   capitalL: "Capital",
   ideologyL: "Beliefs",
   mottoL: "Motto",
+  aiH: "Mission report · AI chronicler",
+  aiCredit: (when: string) => `Written by Claude from this planet's facts and news · ${when}`,
+  aiPending:
+    "The chronicler is reading this planet's facts and news. Its story will appear here shortly.",
+  aiDemo: "Chronicles are written for live planets once the coin launches.",
   findsH: "Rare finds",
   findsNone: "Nothing yet. Rare finds turn up about once a year of planet time.",
   tokens: "Tokens",

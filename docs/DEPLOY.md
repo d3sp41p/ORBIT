@@ -55,7 +55,13 @@ WEBHOOK_URL=https://orbit-green-chi.vercel.app/api/webhooks/helius
 MIN_HOLDING_TOKENS=100000
 SNAPSHOT_INTERVAL_SEC=60
 BACKFILL_LIMIT=20000
+ANTHROPIC_API_KEY=...
+AI_DAILY_BUDGET_USD=2.5
 ```
+
+Без `ANTHROPIC_API_KEY` (или при `AI_DAILY_BUDGET_USD=0`) все тексты остаются шаблонными — сайт работает
+как обычно. Состояние ИИ видно в health воркера (поле `ai`: включён, расход за сегодня, очередь) и
+в строке `[worker] alive` в логах раз в 10 минут.
 
 `TOKEN_MINT` на Railway не нужен: до запуска воркер ничего не индексирует и не тратит
 кредиты Helius, а после — берёт монету из базы. Стенд (`TOKEN_MINT`) используется только

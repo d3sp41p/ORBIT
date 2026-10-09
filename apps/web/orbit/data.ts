@@ -66,6 +66,8 @@ export interface Listeners {
   onNews(item: FeedItem): void;
   /** Any event of a planet: the open mission page may refresh. */
   onPlanetEvent(wallet: string): void;
+  /** An event's template text was replaced by its AI text. */
+  onNewsText(id: string, text: string): void;
   /** New planet data (visuals, ranks, new and lost planets). */
   onScene(data: SceneData): void;
   onStar(star: StarInfo): void;
@@ -74,7 +76,8 @@ export interface Listeners {
 export interface DataSource {
   readonly live: boolean;
   load(): Promise<SceneData>;
-  card(wallet: string): Promise<CardResult>;
+  /** `fresh` skips caches: a refresh after a change must see it. */
+  card(wallet: string, fresh?: boolean): Promise<CardResult>;
   moreNews(wallet: string, cursor: string): Promise<{ items: NewsItem[]; next: string | null }>;
   feed(): Promise<FeedItem[]>;
   start(l: Listeners): void;
@@ -125,8 +128,10 @@ export class LiveSource implements DataSource {
     return d;
   }
 
-  async card(wallet: string): Promise<CardResult> {
-    const j = await this.get<CardResult | { error: unknown }>(`/api/planet/${wallet}`);
+  async card(wallet: string, fresh = false): Promise<CardResult> {
+    const j = await this.get<CardResult | { error: unknown }>(
+      `/api/planet/${wallet}${fresh ? `?t=${Date.now()}` : ""}`,
+    );
     return "error" in j ? { status: "none" } : j;
   }
 
@@ -187,6 +192,23 @@ export class LiveSource implements DataSource {
               cls: p?.cls ?? null,
             },
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "planet_events" },
+        (msg) => {
+          const r = msg.new as { id: number; wallet: string; text_en: string };
+          l.onNewsText(String(r.id), r.text_en);
+          l.onPlanetEvent(r.wallet);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "planet_chronicle" },
+        (msg) => {
+          const r = msg.new as { wallet?: string };
+          if (r.wallet) l.onPlanetEvent(r.wallet);
         },
       )
       .on(

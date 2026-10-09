@@ -7,6 +7,8 @@ export interface HealthState {
   /** Whether the worker can manage the Helius webhook. */
   webhook?: string;
   heliusCredits?: () => number;
+  /** AI texts: on, paused or off, with today's spend. */
+  ai?: () => string;
 }
 
 export function healthBody(state: HealthState, now = new Date()) {
@@ -18,6 +20,7 @@ export function healthBody(state: HealthState, now = new Date()) {
     indexer: state.indexer ?? "starting",
     webhook: state.webhook ?? "unknown",
     heliusCredits: state.heliusCredits?.() ?? 0,
+    ai: state.ai?.() ?? "unknown",
   };
 }
 

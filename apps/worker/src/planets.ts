@@ -10,6 +10,8 @@
  */
 import {
   advance,
+  aiKinds,
+  AI_NEWS_FRESH_MS,
   applySell,
   eraName,
   initSim,
@@ -68,19 +70,39 @@ export class Planets {
     };
   }
 
+  /**
+   * Save events with their template texts. Fresh events that deserve an AI
+   * text (by the planet's rank) go to the AI queue, and a new civilization
+   * gets its culture written once.
+   */
   private async insertEvents(
     client: PoolClient,
-    p: { wallet: string; lifeNo: number; nature: PlanetClass; holdStart: number; waterMax: number },
+    p: {
+      wallet: string;
+      lifeNo: number;
+      nature: PlanetClass;
+      holdStart: number;
+      waterMax: number;
+      rank: number | null;
+    },
     events: SimEvent[],
   ) {
+    const aiKindList = aiKinds(p.rank);
     for (let i = 0; i < events.length; i += 500) {
       const chunk = events.slice(i, i + 500);
       const text = chunk.map((e) => eventText(e, { cls: p.nature, waterMax: p.waterMax }));
       await client.query(
-        `insert into planet_events (wallet, life_no, day, at, kind, params, text_en, notable)
-         select $1, $2, d, a, k, pr, t, n
-         from unnest($3::float8[], $4::timestamptz[], $5::text[], $6::jsonb[], $7::text[], $8::bool[])
-           as v(d, a, k, pr, t, n)`,
+        `with ins as (
+           insert into planet_events (wallet, life_no, day, at, kind, params, text_en, notable)
+           select $1, $2, d, a, k, pr, t, n
+           from unnest($3::float8[], $4::timestamptz[], $5::text[], $6::jsonb[], $7::text[], $8::bool[])
+             as v(d, a, k, pr, t, n)
+           returning id, kind, at
+         )
+         insert into ai_jobs (kind, wallet, life_no, event_id)
+         select 'news', $1, $2, id from ins
+         where kind = any($9::text[]) and at > now() - make_interval(secs => $10)
+         on conflict do nothing`,
         [
           p.wallet,
           p.lifeNo,
@@ -90,9 +112,16 @@ export class Planets {
           chunk.map((e) => JSON.stringify(e.p)),
           text,
           chunk.map((e) => isNotable(e, p.nature)),
+          aiKindList,
+          AI_NEWS_FRESH_MS / 1000,
         ],
       );
     }
+    if (events.some((e) => e.k === "civ"))
+      await client.query(
+        `insert into ai_jobs (kind, wallet, life_no) values ('bible', $1, $2) on conflict do nothing`,
+        [p.wallet, p.lifeNo],
+      );
     const finds = events.filter((e) => e.k === "rare");
     for (const f of finds)
       await client.query(
@@ -112,14 +141,18 @@ export class Planets {
     const state: PlanetStateJson = { ...saved.state, countedSells: marksOf(sells) };
     await client.query(
       `update planet_state set tick_no = $2, next_tick_at = $3, state = $4, rng_state = $5,
-         bible = $6, history = $7, updated_at = now() where wallet = $1`,
+         bible = case
+           when $6::jsonb is null then null
+           when bible ? 'lore' then $6::jsonb || jsonb_build_object('lore', bible -> 'lore')
+           else $6::jsonb end,
+         history = $7, updated_at = now() where wallet = $1`,
       [
         p.wallet,
         S.k,
         new Date(tickAt(p.holdStart, S.k)),
         JSON.stringify(state),
         saved.rngState,
-        JSON.stringify(S.bible),
+        S.bible ? JSON.stringify(S.bible) : null,
         JSON.stringify(S.hist),
       ],
     );
@@ -186,7 +219,14 @@ export class Planets {
         );
         await this.insertEvents(
           client,
-          { wallet: r.wallet, lifeNo: r.life_no, nature, holdStart, waterMax: S.waterMax },
+          {
+            wallet: r.wallet,
+            lifeNo: r.life_no,
+            nature,
+            holdStart,
+            waterMax: S.waterMax,
+            rank: r.rank,
+          },
           S.news,
         );
         await client.query("commit");
@@ -260,6 +300,7 @@ export class Planets {
               nature: row.nature,
               holdStart,
               waterMax: S.waterMax,
+              rank: r.rank,
             },
             S.news,
           );
@@ -293,6 +334,7 @@ export class Planets {
             nature: row.nature,
             holdStart,
             waterMax: S.waterMax,
+            rank: r.rank,
           },
           [...run.events, ...final],
         );
@@ -400,7 +442,14 @@ export class Planets {
         const r = advance(S, h, holdStart, now, ctx, 5000);
         await this.insertEvents(
           client,
-          { wallet, lifeNo: row.life_no, nature: row.nature, holdStart, waterMax: S.waterMax },
+          {
+            wallet,
+            lifeNo: row.life_no,
+            nature: row.nature,
+            holdStart,
+            waterMax: S.waterMax,
+            rank: row.rank,
+          },
           r.events,
         );
         await this.saveRow(client, { wallet, holdStart }, S, sells);

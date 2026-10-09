@@ -169,6 +169,10 @@ export interface PlanetCard {
   newsTotal: number;
   /** Milestones, discoveries and catastrophes of this life (up to 12, newest first). */
   timeline: NewsItem[];
+  /** Culture of the civilization, written by AI once it appears (null until then). */
+  lore: string | null;
+  /** AI chronicle of this life (null until written). */
+  chronicle: { text: string; at: number } | null;
 }
 
 /** Kinds that make the mission timeline. */
@@ -197,6 +201,8 @@ export function cardFromState(p: {
   news: NewsItem[];
   newsTotal: number;
   timeline: NewsItem[];
+  lore?: string | null;
+  chronicle?: { text: string; at: number } | null;
 }): PlanetCard {
   const S = p.state;
   const h = { cls: p.nature };
@@ -242,6 +248,8 @@ export function cardFromState(p: {
     news: p.news,
     newsTotal: p.newsTotal,
     timeline: p.timeline,
+    lore: p.lore ?? null,
+    chronicle: p.chronicle ?? null,
   };
 }
 

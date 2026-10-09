@@ -1,4 +1,5 @@
 import pg from "pg";
+import { AiWriter } from "./ai";
 import { TokenController } from "./controller";
 import { loadConfig, type WorkerConfig } from "./env";
 import { startHealthServer, type HealthState } from "./health";
@@ -38,6 +39,8 @@ db.on("error", (e) => console.error("[worker] database connection error:", e.mes
 const helius = new Helius(cfg!.heliusKey);
 const token = new TokenController(db, helius, cfg!, state);
 const planets = new Planets(db);
+const ai = new AiWriter(db, cfg!.anthropicKey, cfg!.aiDailyBudgetUsd);
+state.ai = () => ai.status;
 state.webhook =
   cfg!.webhookUrl && cfg!.webhookSecret
     ? "ready"
@@ -82,9 +85,11 @@ void every("ticks", 30, async () => {
   if (!token.indexer) return;
   while ((await planets.ticks()) === 100 && !stopping);
 });
+// AI texts for fresh events, new civilizations and requested chronicles.
+void every("ai", 5, () => ai.run());
 timers.push(
   setInterval(
-    () => console.log(`[worker] alive, Helius credits used ~${helius.credits}`),
+    () => console.log(`[worker] alive, Helius credits used ~${helius.credits}, AI ${ai.status}`),
     10 * 60_000,
   ),
 );

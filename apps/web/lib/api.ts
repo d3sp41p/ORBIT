@@ -14,7 +14,7 @@ import {
   type SimEvent,
   type StoredState,
 } from "@orbit/core";
-import { select, selectAll } from "./db";
+import { rpc, select, selectAll } from "./db";
 
 interface StateRow {
   mcap: number;
@@ -201,7 +201,10 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
       nature: PlanetClass;
       hold_started_at: string;
       state: StoredState & { countedSells?: number[] };
-    }>(`planet_state?wallet=eq.${wallet}&select=life_no,nature,hold_started_at,state`),
+      lore: { species: string; text: string } | null;
+    }>(
+      `planet_state?wallet=eq.${wallet}&select=life_no,nature,hold_started_at,state,lore:bible->lore`,
+    ),
     select<StateRow>("system_state?id=eq.1&select=holders_count,token_decimals", {
       revalidate: 15,
     }),
@@ -222,12 +225,22 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
       summary: rows[0].summary,
     };
   }
-  const [news, timeline] = await Promise.all([
+  const [news, timeline, chron] = await Promise.all([
     loadEvents(wallet, h.life_no),
     select<EventRow>(
       `planet_events?wallet=eq.${wallet}&life_no=eq.${h.life_no}&or=(kind.in.(formed,sell,collapse,eraDown,eraUp,life,lifeGas,lifeAst,civ,rare))&select=${EVENT_COLS}&order=id.desc&limit=12`,
     ),
+    select<{ text_en: string; generated_at: string; events_hash: string }>(
+      `planet_chronicle?wallet=eq.${wallet}&life_no=eq.${h.life_no}&select=text_en,generated_at,events_hash`,
+    ),
   ]);
+  // The chronicle is written by the worker; ask for it when missing or 5+ events behind.
+  const total = news.total ?? news.items.length;
+  const chronicle = chron.rows[0];
+  const counted = Number(chronicle?.events_hash.split(":")[0]);
+  if (!chronicle || !(total - counted < 5))
+    await rpc("request_chronicle", { p_wallet: wallet }).catch(() => undefined);
+  const bible = ps.state.bible;
   const sells = marked(h.sell_log, ps.state.countedSells);
   const card = cardFromState({
     wallet,
@@ -248,8 +261,12 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
     sellCount: h.sells,
     state: ps.state,
     news: news.items,
-    newsTotal: news.total ?? news.items.length,
+    newsTotal: total,
     timeline: timeline.rows.map(toNews),
+    lore: bible && ps.lore?.species === bible.species ? ps.lore.text : null,
+    chronicle: chronicle
+      ? { text: chronicle.text_en, at: new Date(chronicle.generated_at).getTime() }
+      : null,
   });
   return { status: "alive", card };
 }

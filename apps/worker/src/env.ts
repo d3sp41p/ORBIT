@@ -29,6 +29,10 @@ export interface WorkerConfig {
   /** Public URL of the site's webhook route; the worker manages the Helius webhook. */
   webhookUrl: string | null;
   webhookSecret: string | null;
+  /** Claude API key; without it every text stays a template. */
+  anthropicKey: string | null;
+  /** Daily AI spend limit in US dollars (0 turns AI texts off). */
+  aiDailyBudgetUsd: number;
 }
 
 export function loadConfig(): WorkerConfig {
@@ -46,5 +50,7 @@ export function loadConfig(): WorkerConfig {
     backfillLimit: Number(process.env.BACKFILL_LIMIT) || 20_000,
     webhookUrl: process.env.WEBHOOK_URL?.trim() || null,
     webhookSecret: process.env.HELIUS_WEBHOOK_SECRET?.trim() || null,
+    anthropicKey: process.env.ANTHROPIC_API_KEY?.trim() || null,
+    aiDailyBudgetUsd: Math.max(0, Number(process.env.AI_DAILY_BUDGET_USD) || 0),
   };
 }

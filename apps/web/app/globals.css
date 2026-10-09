@@ -718,6 +718,13 @@ ol.press p {
   color: var(--mute);
   line-height: 1.5;
 }
+/* culture of a civilization, written by the AI chronicler */
+p.lore {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
 ol.tl {
   list-style: none;
   margin: 0;

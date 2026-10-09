@@ -1002,11 +1002,11 @@ export async function start(opts: StartOptions) {
   let nextNews: string | null = null;
   let cardRequest = 0;
 
-  async function loadCard(h: Body, keepScroll: boolean) {
+  async function loadCard(h: Body, keepScroll: boolean, fresh = false) {
     const req = ++cardRequest;
     let r: CardResult;
     try {
-      r = await source.card(h.wallet);
+      r = await source.card(h.wallet, fresh);
     } catch {
       return;
     }
@@ -1117,7 +1117,13 @@ export async function start(opts: StartOptions) {
     else if (selected) {
       const h = selected;
       if (card && card.wallet === h.wallet) {
-        pBody.innerHTML = planetPanelHTML(card, news, !!nextNews, { ticker: brand.ticker });
+        pBody.innerHTML = planetPanelHTML(
+          card,
+          news,
+          !!nextNews,
+          { ticker: brand.ticker },
+          source.live,
+        );
         $("closeUp").onclick = () => focus(h, true);
         const mn = document.getElementById("moreNews");
         if (mn)
@@ -1248,8 +1254,15 @@ export async function start(opts: StartOptions) {
       if (selected?.wallet !== wallet || refreshTimer) return;
       refreshTimer = window.setTimeout(() => {
         refreshTimer = 0;
-        if (selected?.wallet === wallet) void loadCard(selected, true);
+        if (selected?.wallet === wallet) void loadCard(selected, true, true);
       }, 1500);
+    },
+    onNewsText(id, text) {
+      let feed = false;
+      gitems = gitems.map((g) => (g.id === id ? ((feed = true), { ...g, text }) : g));
+      if (feed) gfeedRender();
+      // The open mission page picks it up on its refresh (onPlanetEvent).
+      news = news.map((n) => (n.id === id ? { ...n, text } : n));
     },
     onScene(data) {
       star = data.star;
