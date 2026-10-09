@@ -118,6 +118,43 @@ export const copy = {
   aiPending:
     "The chronicler is reading this planet's facts and news. Its story will appear here shortly.",
   aiDemo: "Chronicles are written for live planets once the coin launches.",
+  /* wallet and customisation */
+  connect: "Connect wallet",
+  myPlanet: "My planet",
+  logout: "Log out",
+  moderation: "Moderation",
+  walletH: "Connect a wallet",
+  walletNote:
+    "A wallet is only needed to customize your own planet. You sign a short text message: we will never ask you to sign a transaction.",
+  noWallets: "No Solana wallet was found in this browser.",
+  installPhantom: "Get Phantom",
+  installSolflare: "Get Solflare",
+  openPhantom: "Open in Phantom",
+  openSolflare: "Open in Solflare",
+  signing: "Check your wallet and sign the message…",
+  signedIn: (addr: string) => `Signed in as ${addr}`,
+  close: "Close",
+  noPlanetYet: (ticker: string, min: string) =>
+    `This wallet has no planet yet. Hold at least ${min} $${ticker} to get one.`,
+  customize: "Customize planet",
+  editH: "Customize planet",
+  fName: "Planet name",
+  fSpecies: "Species name",
+  fCapital: "Capital",
+  fMotto: "Motto",
+  fCivLater: "Species, capital and motto take effect once a civilization appears on the planet.",
+  fNote:
+    "Only you can change your planet. Names are checked and can be changed once a day. Empty fields use the stock names.",
+  save: "Save",
+  cancel: "Cancel",
+  reset: "Restore defaults",
+  saved: "Saved. Your names now appear everywhere on the site.",
+  restored: "Stock names restored.",
+  reportName: "Report name",
+  reportQ: "Report this planet's names as offensive? A moderator will review them.",
+  reportReason: "Reason (optional)",
+  reportSend: "Send report",
+  reported: "Thanks. A moderator will take a look.",
   findsH: "Rare finds",
   findsNone: "Nothing yet. Rare finds turn up about once a year of planet time.",
   tokens: "Tokens",
@@ -175,6 +212,24 @@ export const copy = {
 export const LOCALE = "en-GB";
 
 /** Mission rules page (/rules). Numbers are passed in from the game config. */
+/** Moderation page (admins only). */
+export const adminCopy = {
+  title: "Name reports",
+  lede: "Planets whose custom names were reported. Hiding them shows the stock names everywhere; the owner can choose new names after a day.",
+  loading: "Loading…",
+  signIn: "Connect an admin wallet to see the reports.",
+  notAdmin: "This wallet is not a moderator.",
+  empty: "No open reports. All quiet in orbit.",
+  loadError: "Reports could not be loaded.",
+  actionError: "That did not work. Reload the page and try again.",
+  reports: (n: number) => (n === 1 ? "1 report" : `${n} reports`),
+  stock: "Stock name",
+  wallet: "Wallet",
+  fields: { name: "Name", species: "Species", capital: "Capital", motto: "Motto" },
+  hide: "Hide names",
+  dismiss: "Keep names",
+};
+
 export const rulesCopy = {
   title: "Mission rules",
   metaDescription:

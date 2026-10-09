@@ -27,13 +27,14 @@ import {
   type ScenePlanet,
 } from "@orbit/core";
 import * as THREE from "three";
+import { mountAccount } from "./account";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import type { PublicToken } from "@/lib/token";
-import { copy as t } from "./copy";
+import { copy as t, LOCALE } from "./copy";
 import {
   pickSource,
   type CardResult,
@@ -123,6 +124,19 @@ export async function start(opts: StartOptions) {
     supabase,
   });
   let star: StarInfo = first.star;
+  // The visitor’s wallet: "Connect wallet", "My planet" and the owner forms.
+  const account = mountAccount($("acct"), {
+    onMyPlanet: () => {
+      const w = account.me.wallet;
+      const h = w ? byWallet.get(w) : undefined;
+      if (h) focus(h);
+      else account.toast(t.noPlanetYet(brand.ticker, fmt(brand.minHolding)));
+    },
+  });
+  account.onChange(() => {
+    editing = reporting = false;
+    if (!panel.hidden && !starPanel && selected) renderPanel();
+  });
   const info = (): SystemInfo => ({
     ticker: brand.ticker,
     contract: brand.contract,
@@ -1001,6 +1015,10 @@ export async function start(opts: StartOptions) {
   let news: NewsItem[] = [];
   let nextNews: string | null = null;
   let cardRequest = 0;
+  // Owner form and "Report name" form on the open mission page.
+  let editing = false;
+  let editErr = "";
+  let reporting = false;
 
   async function loadCard(h: Body, keepScroll: boolean, fresh = false) {
     const req = ++cardRequest;
@@ -1019,7 +1037,8 @@ export async function start(opts: StartOptions) {
       news = fresh ? r.card.news : [...r.card.news, ...news.filter((n) => !seen.has(n.id))];
       if (fresh)
         nextNews = r.card.news.length < r.card.newsTotal ? (r.card.news.at(-1)?.id ?? null) : null;
-      renderPanel(!keepScroll);
+      // A live refresh must not wipe what the owner is typing.
+      if (!editing && !reporting) renderPanel(!keepScroll);
     } else if (r.status === "dead") {
       pBody.innerHTML = deadPanelHTML(r);
       bindPanel();
@@ -1032,6 +1051,8 @@ export async function start(opts: StartOptions) {
       card = null;
       news = [];
       nextNews = null;
+      editing = reporting = false;
+      editErr = "";
     }
     setSelected(h);
     starPanel = false;
@@ -1106,6 +1127,114 @@ export async function start(opts: StartOptions) {
         }),
     );
   }
+  /* ================= wallet: customisation and reports ================= */
+  async function send(method: string, path: string, body?: unknown) {
+    const res = await fetch(path, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: "same-origin",
+    });
+    const j = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string; retryAt?: number };
+    };
+    if (!res.ok) {
+      const e = j.error;
+      const when = e?.retryAt ? ` (${new Date(e.retryAt).toLocaleString(LOCALE)})` : "";
+      throw new Error((e?.message ?? "Something went wrong, try again") + when);
+    }
+  }
+
+  /** After a change of names: the card, the labels and the feed show them at once. */
+  function refreshNames(h: Body) {
+    void loadCard(h, true, true);
+    void source
+      .load()
+      .then((d) => setWorld(d))
+      .catch(() => undefined);
+  }
+
+  function bindOwnerForms(h: Body, c: PlanetCard) {
+    const val = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
+    const customize = document.getElementById("customize");
+    if (customize)
+      customize.onclick = () => {
+        editing = true;
+        editErr = "";
+        renderPanel();
+        (document.getElementById("fName") as HTMLInputElement | null)?.focus();
+      };
+    const form = document.getElementById("editForm") as HTMLFormElement | null;
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        form.querySelectorAll("button").forEach((b) => b.setAttribute("disabled", ""));
+        try {
+          await send("PUT", `/api/planet/${c.wallet}/custom`, {
+            name: val("fName"),
+            species: val("fSpecies"),
+            capital: val("fCapital"),
+            motto: val("fMotto"),
+          });
+          editing = false;
+          account.toast(t.saved);
+          refreshNames(h);
+        } catch (err) {
+          editErr = err instanceof Error ? err.message : String(err);
+          // Keep what was typed.
+          const typed = ["fName", "fSpecies", "fCapital", "fMotto"].map(val);
+          renderPanel();
+          ["fName", "fSpecies", "fCapital", "fMotto"].forEach(
+            (id, i) => ((document.getElementById(id) as HTMLInputElement).value = typed[i]!),
+          );
+        }
+      };
+      $("editCancel").onclick = () => {
+        editing = false;
+        editErr = "";
+        renderPanel();
+      };
+      const reset = document.getElementById("editReset");
+      if (reset)
+        reset.onclick = async () => {
+          try {
+            await send("DELETE", `/api/planet/${c.wallet}/custom`);
+            editing = false;
+            account.toast(t.restored);
+            refreshNames(h);
+          } catch (err) {
+            editErr = err instanceof Error ? err.message : String(err);
+            renderPanel();
+          }
+        };
+    }
+    const report = document.getElementById("reportName");
+    if (report)
+      report.onclick = () => {
+        reporting = true;
+        renderPanel();
+        (document.getElementById("rReason") as HTMLInputElement | null)?.focus();
+      };
+    const rForm = document.getElementById("reportForm") as HTMLFormElement | null;
+    if (rForm) {
+      rForm.onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          await send("POST", `/api/planet/${c.wallet}/report`, { reason: val("rReason") });
+          account.toast(t.reported);
+        } catch (err) {
+          account.toast(err instanceof Error ? err.message : String(err));
+        }
+        reporting = false;
+        renderPanel();
+      };
+      $("reportCancel").onclick = () => {
+        reporting = false;
+        renderPanel();
+      };
+    }
+  }
+
   function renderPanel(reset = false) {
     const keep = pBody.scrollTop;
     const wasHidden = panel.hidden;
@@ -1122,9 +1251,11 @@ export async function start(opts: StartOptions) {
           news,
           !!nextNews,
           { ticker: brand.ticker },
-          source.live,
+          { live: source.live, me: account.me.wallet, editing, editErr, reporting },
         );
-        $("closeUp").onclick = () => focus(h, true);
+        bindOwnerForms(h, card);
+        const closeUp = document.getElementById("closeUp");
+        if (closeUp) closeUp.onclick = () => focus(h, true);
         const mn = document.getElementById("moreNews");
         if (mn)
           mn.onclick = async () => {

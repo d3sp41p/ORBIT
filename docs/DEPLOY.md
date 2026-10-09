@@ -42,6 +42,10 @@ Supabase, Helius, Anthropic. Ключи — только в настройках
 | `SUPABASE_SERVICE_ROLE_KEY` | из `.env.local` |
 | `HELIUS_WEBHOOK_SECRET` | из `.env.local` |
 | `MIN_HOLDING_TOKENS` | `100000` |
+| `ADMIN_WALLETS` | адреса кошельков модераторов через запятую (видят жалобы и скрывают названия на `/admin`) |
+
+`SUPABASE_SERVICE_ROLE_KEY` нужен сайту для входа через кошелёк, настроек планеты и жалоб: он
+используется только на сервере и не попадает в браузер (проверено поиском по клиентским файлам сборки).
 
 После сохранения: Deployments → последний деплой → ⋮ → **Redeploy**.
 

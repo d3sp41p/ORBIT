@@ -36,6 +36,21 @@ export function base58Decode(s: string): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
+export function base58Encode(bytes: Uint8Array): string {
+  let n = 0n;
+  for (const b of bytes) n = (n << 8n) + BigInt(b);
+  let out = "";
+  while (n > 0n) {
+    out = B58[Number(n % 58n)] + out;
+    n /= 58n;
+  }
+  for (const b of bytes) {
+    if (b !== 0) break;
+    out = "1" + out;
+  }
+  return out;
+}
+
 /** True for a normal wallet; false for program-derived accounts (PDAs). */
 export function isOnCurve(address: string): boolean {
   try {

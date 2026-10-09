@@ -3,8 +3,14 @@
  * from the database; the browser never simulates anything.
  */
 import {
+  applyNames,
   cardFromState,
+  hasCustom,
+  namePairs,
   planetName,
+  stockNames,
+  type Bible,
+  type CustomValues,
   scenePlanet,
   type NewsItem,
   type PlanetCard,
@@ -57,6 +63,53 @@ type SceneStateRow = {
   counted: number[] | null;
 };
 
+/* ================= owner names ================= */
+
+/**
+ * Owner names in effect, by wallet. Names the admin hid are not readable with
+ * the anon key at all, so they never reach this code. Only the whole map
+ * (scene) is cached briefly: a card must show a change right after saving.
+ */
+async function customOf(wallets: string[] | "all"): Promise<Map<string, CustomValues>> {
+  if (wallets !== "all" && !wallets.length) return new Map();
+  const filter = wallets === "all" ? "" : `wallet=in.(${wallets.join(",")})&`;
+  const rows = await selectAll<CustomValues & { wallet: string }>(
+    `planet_custom?${filter}select=wallet,name,species,capital,motto`,
+    wallets === "all" ? 15 : undefined,
+  );
+  return new Map(
+    rows
+      .filter(hasCustom)
+      .map((r) => [
+        r.wallet,
+        { name: r.name, species: r.species, capital: r.capital, motto: r.motto },
+      ]),
+  );
+}
+
+/** Text replacements (stock name -> owner name) for the given planets. */
+async function pairsOf(wallets: string[]): Promise<Map<string, [string, string][]>> {
+  const custom = await customOf(wallets);
+  const out = new Map<string, [string, string][]>();
+  const ws = [...custom.keys()];
+  if (!ws.length) return out;
+  const [holders, states] = await Promise.all([
+    select<{ wallet: string; name: string | null }>(
+      `holders?wallet=in.(${ws.join(",")})&select=wallet,name`,
+    ),
+    select<{ wallet: string; bible: Bible | null }>(
+      `planet_state?wallet=in.(${ws.join(",")})&select=wallet,bible:state->bible`,
+    ),
+  ]);
+  const names = new Map(holders.rows.map((r) => [r.wallet, r.name]));
+  const bibles = new Map(states.rows.map((r) => [r.wallet, r.bible]));
+  for (const w of ws) {
+    const stock = stockNames(names.get(w) ?? planetName(w), bibles.get(w));
+    out.set(w, namePairs(stock, custom.get(w)!));
+  }
+  return out;
+}
+
 /** Sells of the current life with the simulation's catastrophe marks. */
 const marked = (log: Sell[] | null, counted: number[] | null | undefined): Sell[] => {
   const marks = new Set(counted ?? []);
@@ -64,7 +117,7 @@ const marked = (log: Sell[] | null, counted: number[] | null | undefined): Sell[
 };
 
 export async function loadSystem(revalidate: number): Promise<SystemData> {
-  const [stateRes, holders, states, archive] = await Promise.all([
+  const [stateRes, holders, states, archive, custom] = await Promise.all([
     select<StateRow>(
       "system_state?id=eq.1&select=mcap,price,holders_count,star_tier,launched,token_decimals,updated_at",
       { revalidate },
@@ -89,6 +142,7 @@ export async function loadSystem(revalidate: number): Promise<SystemData> {
       `planet_archive?ended_at=gt.${new Date(Date.now() - 86_400_000).toISOString()}&select=wallet,ended_at,summary&order=ended_at.desc&limit=200`,
       { revalidate },
     ),
+    customOf("all"),
   ]);
   const s = stateRes.rows[0]!;
   const byWallet = new Map(states.map((r) => [r.wallet, r]));
@@ -97,20 +151,21 @@ export async function loadSystem(revalidate: number): Promise<SystemData> {
   for (const h of holders) {
     const st = byWallet.get(h.wallet);
     if (!st) continue; // planet not formed yet (a few seconds after the first buy)
-    planets.push(
-      scenePlanet({
-        wallet: h.wallet,
-        name: h.name ?? planetName(h.wallet),
-        rank: h.rank,
-        timeRank: h.time_rank,
-        orbit: h.orbit,
-        cls: h.class,
-        nature: st.nature,
-        state: st,
-        days: (now - new Date(st.hold_started_at).getTime()) / 86_400_000,
-        sells: marked(h.sell_log, st.counted),
-      }),
-    );
+    const stock = h.name ?? planetName(h.wallet);
+    const own = custom.get(h.wallet)?.name;
+    const p = scenePlanet({
+      wallet: h.wallet,
+      name: own ?? stock,
+      rank: h.rank,
+      timeRank: h.time_rank,
+      orbit: h.orbit,
+      cls: h.class,
+      nature: st.nature,
+      state: st,
+      days: (now - new Date(st.hold_started_at).getTime()) / 86_400_000,
+      sells: marked(h.sell_log, st.counted),
+    });
+    planets.push(own && own !== stock ? { ...p, stockName: stock } : p);
   }
   return {
     star: {
@@ -156,14 +211,25 @@ const toNews = (r: EventRow): NewsItem => ({
 const EVENT_COLS = "id,wallet,day,at,kind,text_en,notable";
 export const PAGE = 20;
 
-/** Planet news, newest first; cursor = id of the last item already shown. */
-export async function loadEvents(wallet: string, lifeNo: number, cursor?: string) {
+/**
+ * Planet news, newest first; cursor = id of the last item already shown.
+ * Owner names replace the stock ones in every text, old ones included.
+ */
+export async function loadEvents(
+  wallet: string,
+  lifeNo: number,
+  cursor?: string,
+  pairs?: [string, string][],
+) {
   const after = cursor && /^\d+$/.test(cursor) ? `&id=lt.${cursor}` : "";
-  const { rows, total } = await select<EventRow>(
-    `planet_events?wallet=eq.${wallet}&life_no=eq.${lifeNo}${after}&select=${EVENT_COLS}&order=id.desc&limit=${PAGE}`,
-    { count: !cursor },
-  );
-  const items = rows.map(toNews);
+  const [{ rows, total }, names] = await Promise.all([
+    select<EventRow>(
+      `planet_events?wallet=eq.${wallet}&life_no=eq.${lifeNo}${after}&select=${EVENT_COLS}&order=id.desc&limit=${PAGE}`,
+      { count: !cursor },
+    ),
+    pairs ?? pairsOf([wallet]).then((m) => m.get(wallet) ?? []),
+  ]);
+  const items = rows.map((r) => ({ ...toNews(r), text: applyNames(r.text_en, names) }));
   return { items, total, next: items.length === PAGE ? items.at(-1)!.id : null };
 }
 
@@ -179,7 +245,7 @@ export type PlanetResult =
   | { status: "none" };
 
 export async function loadPlanet(wallet: string): Promise<PlanetResult> {
-  const [holderRes, stateRes, sys] = await Promise.all([
+  const [holderRes, stateRes, sys, customRes] = await Promise.all([
     select<{
       wallet: string;
       name: string | null;
@@ -208,7 +274,9 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
     select<StateRow>("system_state?id=eq.1&select=holders_count,token_decimals", {
       revalidate: 15,
     }),
+    customOf([wallet]),
   ]);
+  const own = customRes.get(wallet) ?? null;
   const h = holderRes.rows[0];
   const ps = stateRes.rows[0];
   if (!h) return { status: "none" };
@@ -220,13 +288,18 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
     return {
       status: "dead",
       wallet,
-      name: h.name ?? planetName(wallet),
+      // The archive keeps the name the planet had (the owner's, unless hidden).
+      name: (rows[0].summary.name as string | undefined) ?? h.name ?? planetName(wallet),
       endedAt: new Date(rows[0].ended_at).getTime(),
       summary: rows[0].summary,
     };
   }
+  const bible = ps.state.bible;
+  const stock = stockNames(h.name ?? planetName(wallet), bible);
+  const pairs = namePairs(stock, own);
+  const named = (n: NewsItem): NewsItem => ({ ...n, text: applyNames(n.text, pairs) });
   const [news, timeline, chron] = await Promise.all([
-    loadEvents(wallet, h.life_no),
+    loadEvents(wallet, h.life_no, undefined, pairs),
     select<EventRow>(
       `planet_events?wallet=eq.${wallet}&life_no=eq.${h.life_no}&or=(kind.in.(formed,sell,collapse,eraDown,eraUp,life,lifeGas,lifeAst,civ,rare))&select=${EVENT_COLS}&order=id.desc&limit=12`,
     ),
@@ -240,11 +313,10 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
   const counted = Number(chronicle?.events_hash.split(":")[0]);
   if (!chronicle || !(total - counted < 5))
     await rpc("request_chronicle", { p_wallet: wallet }).catch(() => undefined);
-  const bible = ps.state.bible;
   const sells = marked(h.sell_log, ps.state.countedSells);
   const card = cardFromState({
     wallet,
-    name: h.name ?? planetName(wallet),
+    name: own?.name ?? stock.name,
     rank: h.rank,
     timeRank: h.time_rank ?? 0,
     holdersCount: sys.rows[0]?.holders_count ?? 0,
@@ -262,11 +334,16 @@ export async function loadPlanet(wallet: string): Promise<PlanetResult> {
     state: ps.state,
     news: news.items,
     newsTotal: total,
-    timeline: timeline.rows.map(toNews),
-    lore: bible && ps.lore?.species === bible.species ? ps.lore.text : null,
+    timeline: timeline.rows.map(toNews).map(named),
+    lore: bible && ps.lore?.species === bible.species ? applyNames(ps.lore.text, pairs) : null,
     chronicle: chronicle
-      ? { text: chronicle.text_en, at: new Date(chronicle.generated_at).getTime() }
+      ? {
+          text: applyNames(chronicle.text_en, pairs),
+          at: new Date(chronicle.generated_at).getTime(),
+        }
       : null,
+    stock,
+    custom: own,
   });
   return { status: "alive", card };
 }
@@ -294,12 +371,14 @@ export async function loadFeed(cursor?: string) {
       ).rows
     : [];
   const info = new Map(names.map((n) => [n.wallet, n]));
+  const [pairs, custom] = await Promise.all([pairsOf(wallets), customOf(wallets)]);
   const items = rows.map((r) => {
     const n = info.get(r.wallet);
     return {
       ...toNews(r),
+      text: applyNames(r.text_en, pairs.get(r.wallet) ?? []),
       planet: {
-        name: n?.name ?? planetName(r.wallet),
+        name: custom.get(r.wallet)?.name ?? n?.name ?? planetName(r.wallet),
         rank: n?.rank ?? null,
         cls: n?.class ?? null,
       },
@@ -318,15 +397,34 @@ export async function searchPlanets(q: string) {
     const exact = await select<{ wallet: string; name: string; rank: number; class: PlanetClass }>(
       `holders?wallet=eq.${query}&status=eq.alive&${cols}`,
     );
-    if (exact.rows.length) return exact.rows;
+    if (exact.rows.length) {
+      const custom = await customOf([query]);
+      return exact.rows.map((r) => ({ ...r, name: custom.get(r.wallet)?.name ?? r.name }));
+    }
   }
   if (query.length < 3) return [];
   const safe = query.replace(/[^A-Za-z0-9 ]/g, "");
   if (!safe) return [];
-  const { rows } = await select<{ wallet: string; name: string; rank: number; class: PlanetClass }>(
-    `holders?status=eq.alive&rank=not.is.null&or=(wallet.ilike.*${encodeURIComponent(safe)}*,name.ilike.*${encodeURIComponent(safe)}*)&${cols}&order=rank&limit=10`,
-  );
-  return rows;
+  const like = encodeURIComponent(safe);
+  const [stock, owned] = await Promise.all([
+    select<{ wallet: string; name: string; rank: number; class: PlanetClass }>(
+      `holders?status=eq.alive&rank=not.is.null&or=(wallet.ilike.*${like}*,name.ilike.*${like}*)&${cols}&order=rank&limit=10`,
+    ),
+    select<{ wallet: string }>(`planet_custom?name=ilike.*${like}*&select=wallet&limit=10`),
+  ]);
+  const extra = owned.rows
+    .map((r) => r.wallet)
+    .filter((w) => !stock.rows.some((s) => s.wallet === w));
+  const more = extra.length
+    ? (
+        await select<{ wallet: string; name: string; rank: number; class: PlanetClass }>(
+          `holders?wallet=in.(${extra.join(",")})&status=eq.alive&rank=not.is.null&${cols}`,
+        )
+      ).rows
+    : [];
+  const all = [...stock.rows, ...more].sort((a, b) => a.rank - b.rank).slice(0, 10);
+  const custom = await customOf(all.map((r) => r.wallet));
+  return all.map((r) => ({ ...r, name: custom.get(r.wallet)?.name ?? r.name }));
 }
 
 /** Wallet addresses are base58; anything else never reaches the database. */

@@ -69,6 +69,8 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         </dl>
         <div className="spacer" />
         <span className="demo">{t.demo}</span>
+        {/* Filled by the engine: "Connect wallet", then "My planet" and the account menu. */}
+        <span className="acct" id="acct" />
         {/* Full page loads on purpose: the 3D engine starts once per document. */}
         {}
         <a className="btn" href="/rules">

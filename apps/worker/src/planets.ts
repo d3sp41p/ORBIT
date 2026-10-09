@@ -368,9 +368,26 @@ export class Planets {
         wallet,
       ])
     ).rows[0]?.orbit;
+    // Owner customisation goes to the archive with the planet; a new life starts with stock names.
+    const custom = (
+      await client.query<{
+        name: string | null;
+        species: string | null;
+        capital: string | null;
+        motto: string | null;
+        hidden_by_admin: boolean;
+      }>(
+        `delete from planet_custom where wallet = $1
+         returning name, species, capital, motto, hidden_by_admin`,
+        [wallet],
+      )
+    ).rows[0];
+    const shown = custom && !custom.hidden_by_admin ? custom : null;
     const summary = {
       orbit: orbit ?? null,
-      name: planetName(wallet),
+      name: shown?.name || planetName(wallet),
+      // The archive is public: hidden names stay out of it.
+      custom: shown,
       nature: row.nature,
       era: S.era,
       eraName: eraName(S.era, { cls: row.nature, waterMax: S.waterMax }),
@@ -380,7 +397,7 @@ export class Planets {
       pop: S.pop,
       tech: S.tech,
       finds: S.finds.length,
-      species: S.bible?.species ?? null,
+      species: shown?.species || S.bible?.species || null,
       catastrophes: S.catCount,
     };
     await client.query(

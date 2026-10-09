@@ -4,6 +4,7 @@
  * fixes the kind of simulation; size and bonuses follow the current rank.
  */
 import { BALANCE } from "./config";
+import { stockNames, type CustomValues, type StockNames } from "./custom";
 import { eraName, eventText, KIND } from "./events";
 import { DAY_MS } from "./math";
 import {
@@ -77,6 +78,8 @@ export interface ScenePlanet {
   og: boolean;
   /** Short status line for hover labels. */
   eraLabel: string;
+  /** Stock name when the owner chose another one (live texts may still use it). */
+  stockName?: string;
 }
 
 export function scenePlanet(p: {
@@ -173,6 +176,10 @@ export interface PlanetCard {
   lore: string | null;
   /** AI chronicle of this life (null until written). */
   chronicle: { text: string; at: number } | null;
+  /** Stock values the owner may replace (the form shows them as placeholders). */
+  stock: StockNames;
+  /** Owner customisation in effect (null: stock names). */
+  custom: CustomValues | null;
 }
 
 /** Kinds that make the mission timeline. */
@@ -203,6 +210,8 @@ export function cardFromState(p: {
   timeline: NewsItem[];
   lore?: string | null;
   chronicle?: { text: string; at: number } | null;
+  stock?: StockNames;
+  custom?: CustomValues | null;
 }): PlanetCard {
   const S = p.state;
   const h = { cls: p.nature };
@@ -250,6 +259,8 @@ export function cardFromState(p: {
     timeline: p.timeline,
     lore: p.lore ?? null,
     chronicle: p.chronicle ?? null,
+    stock: p.stock ?? stockNames(p.name, S.bible),
+    custom: p.custom ?? null,
   };
 }
 

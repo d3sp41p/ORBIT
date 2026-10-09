@@ -159,8 +159,9 @@ export function planetPanelHTML(
   news: NewsItem[],
   hasMore: boolean,
   sys: Pick<SystemInfo, "ticker">,
-  live = true,
+  view: PanelView = { live: true, me: null, editing: false, editErr: "", reporting: false },
 ) {
+  const live = view.live;
   const S = c.state,
     era = S.era,
     rock = c.nature === "rocky",
@@ -233,9 +234,21 @@ export function planetPanelHTML(
     })
     .join("");
   const B = c.bible;
+  // Owner names win over the stock ones.
+  const own = c.custom;
   const civ = B
-    ? `<dl class="kv"><dt>${t.speciesL}</dt><dd>${esc(B.species)}</dd><dt>${t.typeL}</dt><dd>${W.ctypes[B.ct]}</dd><dt>${t.lookL}</dt><dd>${cap1(W.looks[B.look]!)}</dd><dt>${t.capitalL}</dt><dd>${esc(B.capital)}</dd><dt>${t.ideologyL}</dt><dd>${cap1(W.ideology[B.ideo]!)}</dd><dt>${t.mottoL}</dt><dd>«${esc(W.motto[B.motto])}»</dd></dl>`
+    ? `<dl class="kv"><dt>${t.speciesL}</dt><dd>${esc(own?.species || B.species)}</dd><dt>${t.typeL}</dt><dd>${W.ctypes[B.ct]}</dd><dt>${t.lookL}</dt><dd>${cap1(W.looks[B.look]!)}</dd><dt>${t.capitalL}</dt><dd>${esc(own?.capital || B.capital)}</dd><dt>${t.ideologyL}</dt><dd>${cap1(W.ideology[B.ideo]!)}</dd><dt>${t.mottoL}</dt><dd>«${esc(own?.motto || W.motto[B.motto])}»</dd></dl>`
     : `<p class="empty">${t.civNone}</p>`;
+  const mine = !!view.me && view.me === c.wallet;
+  const actions = view.editing
+    ? editHTML(c, view.editErr)
+    : `<div class="actions"><button class="btn" id="closeUp">${t.flyCloser}</button>${
+        mine
+          ? `<button class="btn" id="customize">${t.customize}</button>`
+          : live && own
+            ? `<button class="btn ghost" id="reportName">${t.reportName}</button>`
+            : ""
+      }</div>${view.reporting ? reportHTML() : ""}`;
   const lore = B && c.lore ? `<p class="lore">${esc(c.lore)}</p>` : "";
   const report = c.chronicle
     ? `<p>${esc(c.chronicle.text)}</p><div class="hint">${t.aiCredit(stamp(c.chronicle.at))}</div>`
@@ -259,7 +272,7 @@ export function planetPanelHTML(
     <div class="status"><span class="live"></span>${t.active}<span class="sep">·</span>${t.dayN(Math.floor(c.days))}<span class="sep">·</span>${eraLabel}${B && S.civ ? `<span class="sep">·</span>${W.ctypes[B.ct]}` : ""}${c.og ? `<span class="sep">·</span>OG` : ""}</div>
     <p class="lede">${ERA_LINES[era]}</p>
     <div class="addr"><span>${esc(c.wallet)}</span><button class="copy" data-copy="${esc(c.wallet)}">${t.copyBtn}</button></div>
-    <div class="actions"><button class="btn" id="closeUp">${t.flyCloser}</button></div></header>
+    ${actions}</header>
     <section class="sec"><h3>${t.fastFacts}</h3><dl class="facts">${facts}</dl>
       <div class="stab"><div class="stab-row"><span>${t.stab}</span><b>${stab} / 100</b></div><div class="bar"><i style="width:${stab}%;background:${stabColor}"></i></div><p>${t.stabHint}</p></div></section>
     <section class="sec"><h3>${t.newsH}<span>${c.newsTotal}</span></h3><ol class="press" id="pressList">${news.length ? newsListHTML(news) : `<li><p class="empty">${t.newsNone}</p></li>`}</ol>${hasMore ? `<button class="more" id="moreNews">${t.newsMore}</button>` : ""}</section>
@@ -272,6 +285,45 @@ export function planetPanelHTML(
 }
 
 /** Mission page of a planet destroyed after a full sell. */
+/** What the panel shows around the card: the signed-in wallet and open forms. */
+export interface PanelView {
+  live: boolean;
+  me: string | null;
+  editing: boolean;
+  editErr: string;
+  reporting: boolean;
+}
+
+/** The owner's form: current values, stock values as placeholders (spec: 24 / 60 chars). */
+function editHTML(c: PlanetCard, err: string) {
+  const v = c.custom;
+  const st = c.stock;
+  const field = (
+    id: string,
+    label: string,
+    max: number,
+    value?: string | null,
+    ph?: string | null,
+  ) =>
+    `<label for="${id}">${label}<input id="${id}" maxlength="${max}" value="${esc(value ?? "")}" placeholder="${esc(ph ?? "")}" autocomplete="off" spellcheck="false"></label>`;
+  return `<form class="edit" id="editForm" novalidate><h4>${t.editH}</h4>
+    ${field("fName", t.fName, 24, v?.name, st.name)}
+    ${field("fSpecies", t.fSpecies, 24, v?.species, st.species)}
+    ${field("fCapital", t.fCapital, 24, v?.capital, st.capital)}
+    ${field("fMotto", t.fMotto, 60, v?.motto, st.motto)}
+    ${c.bible ? "" : `<p class="note">${t.fCivLater}</p>`}
+    ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ""}
+    <p class="note">${t.fNote}</p>
+    <div class="row"><button class="btn primary" type="submit">${t.save}</button><button class="btn" type="button" id="editCancel">${t.cancel}</button>${v ? `<button class="btn ghost" type="button" id="editReset">${t.reset}</button>` : ""}</div></form>`;
+}
+
+/** "Report name": a short confirmation with an optional reason. */
+function reportHTML() {
+  return `<form class="edit" id="reportForm" novalidate><p class="note">${t.reportQ}</p>
+    <label for="rReason">${t.reportReason}<input id="rReason" maxlength="200" autocomplete="off"></label>
+    <div class="row"><button class="btn primary" type="submit">${t.reportSend}</button><button class="btn" type="button" id="reportCancel">${t.cancel}</button></div></form>`;
+}
+
 export function deadPanelHTML(d: {
   wallet: string;
   name: string;

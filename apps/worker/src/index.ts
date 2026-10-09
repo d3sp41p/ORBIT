@@ -87,6 +87,14 @@ void every("ticks", 30, async () => {
 });
 // AI texts for fresh events, new civilizations and requested chronicles.
 void every("ai", 5, () => ai.run());
+// Sign-in leftovers: used or expired messages, ended sessions, old rate counters.
+void every("housekeeping", 3600, () =>
+  db.query(
+    `delete from auth_nonces where expires_at < now() - interval '1 hour';
+     delete from auth_sessions where expires_at < now();
+     delete from rate_hits where window_start < now() - interval '1 day';`,
+  ),
+);
 timers.push(
   setInterval(
     () => console.log(`[worker] alive, Helius credits used ~${helius.credits}, AI ${ai.status}`),

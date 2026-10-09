@@ -1,6 +1,8 @@
 export * from "./ai";
 export { BALANCE, type Balance } from "./config";
+export * from "./auth";
 export * from "./chain";
+export * from "./custom";
 export * from "./demo";
 export * from "./events";
 export * from "./format";
