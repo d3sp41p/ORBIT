@@ -108,6 +108,8 @@ export class AiWriter {
   private spent = 0;
   private queued = 0;
   private note = "";
+  /** The next request did not fit into what is left of today's budget. */
+  private budgetFull = false;
 
   constructor(
     private readonly db: Pool,
@@ -121,8 +123,9 @@ export class AiWriter {
   get status(): string {
     if (!this.client) return "off: ANTHROPIC_API_KEY is not set";
     if (this.budget <= 0) return "off: AI_DAILY_BUDGET_USD is 0";
-    const spend = `$${this.spent.toFixed(4)} of $${this.budget.toFixed(2)} today, ${this.queued} queued`;
-    if (this.spent >= this.budget) return `paused: daily budget reached (${spend})`;
+    const spend = `$${this.spent.toFixed(4)} of $${this.budget} today, ${this.queued} queued`;
+    if (this.spent >= this.budget || this.budgetFull)
+      return `paused: daily budget reached (${spend})`;
     if (Date.now() < this.pausedUntil) return `paused: ${this.note} (${spend})`;
     return `on: ${spend}`;
   }
@@ -136,6 +139,7 @@ export class AiWriter {
       [AI_NEWS_FRESH_MS / 1000],
     );
     this.spent = await this.spentToday();
+    this.budgetFull = false;
     this.queued = Number(
       (await this.db.query(`select count(*) from ai_jobs where attempts < 3`)).rows[0].count,
     );
@@ -207,6 +211,7 @@ export class AiWriter {
     }
     const reserve = maxCostUsd(AI_SYSTEM.length + work.prompt.user.length, work.prompt.maxTokens);
     if (this.spent + this.reserved + reserve > this.budget || Date.now() < this.pausedUntil) {
+      if (Date.now() >= this.pausedUntil) this.budgetFull = true;
       await this.release(j);
       return "stop";
     }
