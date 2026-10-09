@@ -89,6 +89,9 @@ export class LiveSource implements DataSource {
   readonly live = true;
   private names = new Map<string, { name: string; rank: number; cls: PlanetClass }>();
   private channel: RealtimeChannel | null = null;
+  /** News already shown (the polling fallback only passes on new ones). */
+  private seen = new Set<string>();
+  private polling = 0;
 
   constructor(
     private readonly preview: string | null,
@@ -142,7 +145,36 @@ export class LiveSource implements DataSource {
   }
 
   async feed() {
-    return (await this.get<{ items: FeedItem[] }>("/api/feed")).items;
+    const items = (await this.get<{ items: FeedItem[] }>("/api/feed")).items;
+    items.forEach((i) => this.seen.add(i.id));
+    return items;
+  }
+
+  /**
+   * Without Realtime (its connection limit is reached, or a network blocks
+   * websockets) the feed is polled every 20 seconds instead.
+   */
+  private poll(l: Listeners, on: boolean) {
+    if (!on) {
+      window.clearInterval(this.polling);
+      this.polling = 0;
+      return;
+    }
+    if (this.polling) return;
+    this.polling = window.setInterval(async () => {
+      try {
+        const known = new Set(this.seen);
+        const items = (await this.get<{ items: FeedItem[] }>("/api/feed")).items;
+        for (const it of [...items].reverse())
+          if (!known.has(it.id)) {
+            this.seen.add(it.id);
+            l.onPlanetEvent(it.wallet);
+            l.onNews(it);
+          }
+      } catch {
+        // try again on the next round
+      }
+    }, 20_000);
   }
 
   start(l: Listeners) {
@@ -155,7 +187,7 @@ export class LiveSource implements DataSource {
         // keep the last known state; try again next minute
       }
     }, 60_000);
-    if (!this.supabase) return;
+    if (!this.supabase) return this.poll(l, true);
     const client = createClient(this.supabase.url, this.supabase.anonKey, {
       auth: { persistSession: false },
     });
@@ -176,6 +208,7 @@ export class LiveSource implements DataSource {
           };
           l.onPlanetEvent(r.wallet);
           if (!r.notable) return;
+          this.seen.add(String(r.id));
           const p = this.names.get(r.wallet);
           l.onNews({
             id: String(r.id),
@@ -219,7 +252,15 @@ export class LiveSource implements DataSource {
           l.onStar({ mcap: s.mcap, tier: s.star_tier, holders: s.holders_count });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") this.poll(l, false);
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED")
+          this.poll(l, true);
+      });
+    // No answer from Realtime within 15 seconds: poll until it connects.
+    window.setTimeout(() => {
+      if (this.channel?.state !== "joined") this.poll(l, true);
+    }, 15_000);
   }
 }
 

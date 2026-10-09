@@ -231,26 +231,36 @@ try {
   check("anyone can report the names", rep.status === 200, `${rep.status}`);
   const notAdmin = await api("/api/admin/reports", { cookie: strangerCookie });
   check("reports are admin only", notAdmin.status === 403, `${notAdmin.status}`);
+  // Moderation needs the test admin key in ADMIN_WALLETS of the site under test
+  // (true for a local run; on production the admins are real wallets).
   const adminCookie = await signIn("admin");
-  const list = await api("/api/admin/reports", { cookie: adminCookie });
-  const item = list.json?.items?.find((i: { wallet: string }) => i.wallet === owner);
-  check(
-    "admin sees the report with the names",
-    item?.custom?.name === "New Eden" && item.reports >= 1,
-  );
-  const hide = await api(`/api/admin/planet/${owner}/hide`, {
-    method: "POST",
-    body: { hidden: true },
-    cookie: adminCookie,
-  });
-  check("admin hides the names", hide.status === 200, `${hide.status}`);
-  const hidden = await card();
-  check("hidden: stock name is shown again", hidden.name === stock.name, hidden.name);
-  const pub = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/planet_custom?wallet=eq.${owner}&select=name`,
-    { headers: { apikey: process.env.SUPABASE_ANON_KEY! } },
-  ).then((r) => r.json());
-  check("hidden names are not public in the database API", Array.isArray(pub) && pub.length === 0);
+  const adminMe = await api("/api/auth/me", { cookie: adminCookie });
+  if (!adminMe.json?.admin) {
+    console.log("SKIP  moderation checks: the test admin key is not an admin on this site");
+  } else {
+    const list = await api("/api/admin/reports", { cookie: adminCookie });
+    const item = list.json?.items?.find((i: { wallet: string }) => i.wallet === owner);
+    check(
+      "admin sees the report with the names",
+      item?.custom?.name === "New Eden" && item.reports >= 1,
+    );
+    const hide = await api(`/api/admin/planet/${owner}/hide`, {
+      method: "POST",
+      body: { hidden: true },
+      cookie: adminCookie,
+    });
+    check("admin hides the names", hide.status === 200, `${hide.status}`);
+    const hidden = await card();
+    check("hidden: stock name is shown again", hidden.name === stock.name, hidden.name);
+    const pub = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/planet_custom?wallet=eq.${owner}&select=name`,
+      { headers: { apikey: process.env.SUPABASE_ANON_KEY! } },
+    ).then((r) => r.json());
+    check(
+      "hidden names are not public in the database API",
+      Array.isArray(pub) && pub.length === 0,
+    );
+  }
 
   // Restore defaults and log out.
   const restore = await api(`/api/planet/${owner}/custom`, {
