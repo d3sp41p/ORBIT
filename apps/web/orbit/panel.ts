@@ -118,8 +118,8 @@ const rgb = (c: readonly number[]) =>
 
 /**
  * The five star classes as glowing, hoverable stars (current one marked),
- * progress to the next class, and a way to the rules. Every star links to
- * the star section of the mission rules.
+ * progress to the next class, and a link to the star section of the rules.
+ * The stars only light up on hover or focus; they are not links.
  */
 function starEvolutionHTML(sys: SystemInfo) {
   const i = sys.tierIndex;
@@ -128,8 +128,8 @@ function starEvolutionHTML(sys: SystemInfo) {
   const stars = STAR_TIERS.map((s, j) => {
     const state = j === i ? "now" : j < i ? "past" : "future";
     const thr = s.max === Infinity ? `${usd(STAR_TIERS[j - 1]!.max)}+` : `${t.under}${usd(s.max)}`;
-    return `<a class="evo-star ${state}" href="/rules#star" aria-label="${s.cls} · ${s.name}, ${thr}${j === i ? ` (${t.evoNow})` : ""}" style="--core:${rgb(s.core)};--edge:${rgb(s.edge)};--d:${26 + j * 7}px">
-      <span class="ball"></span><b>${s.cls}</b><small>${s.name}</small><small class="thr">${thr}</small>${j === i ? `<em>${t.evoNow}</em>` : ""}</a>`;
+    return `<div class="evo-star ${state}" tabindex="0" role="img" aria-label="${s.cls} · ${s.name}, ${thr}${j === i ? ` (${t.evoNow})` : ""}" style="--core:${rgb(s.core)};--edge:${rgb(s.edge)};--d:${26 + j * 7}px">
+      <span class="ball"></span><b>${s.cls}</b><small>${s.name}</small><small class="thr">${thr}</small>${j === i ? `<em>${t.evoNow}</em>` : ""}</div>`;
   }).join("");
   // Progress inside the current class on a log scale (classes grow tenfold).
   const lo = i === 0 ? 1e4 : STAR_TIERS[i - 1]!.max;

@@ -1116,7 +1116,7 @@ dl.kv dd.num {
   gap: 4px;
   padding: 12px 4px 10px;
   text-align: center;
-  text-decoration: none;
+  cursor: default;
   color: var(--ink);
   border: 1px solid transparent;
   border-radius: 2px;
