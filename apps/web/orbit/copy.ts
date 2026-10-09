@@ -355,10 +355,7 @@ export const rulesCopy = {
       tag: "Rule 11",
       title: "Who is not a planet",
       lead: "Some accounts hold tokens but are not people. They never appear in the system:",
-      points: [
-        "the bonding curve and liquidity pools (program accounts),",
-        "the burn address.",
-      ],
+      points: ["the bonding curve and liquidity pools (program accounts),", "the burn address."],
     },
   },
   disclaimer:
