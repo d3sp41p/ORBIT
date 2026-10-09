@@ -46,6 +46,9 @@ const TOKEN_TABLES = [
   "planet_custom",
   "chain_events",
   "holders",
+  // AI jobs point at events (a foreign key): truncating events alone fails.
+  "ai_jobs",
+  "name_reports",
 ];
 
 const sameList = (a: readonly string[], b: readonly string[]) =>
