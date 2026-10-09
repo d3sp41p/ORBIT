@@ -24,7 +24,7 @@ jobs:
         run: pnpm check:cyrillic
       - name: Cyrillic check (spec command)
         run: |
-          if grep -rnP "[А-Яа-яЁё]" apps packages --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist; then
+          if grep -rnIP "[А-Яа-яЁё]" apps packages --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist; then
             echo "Cyrillic text found"; exit 1
           fi
       - run: pnpm lint
