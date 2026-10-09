@@ -31,3 +31,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: No secrets in the client build
+        run: pnpm check:secrets
+      - name: Browser tests (Playwright)
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm e2e

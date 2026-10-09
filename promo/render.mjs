@@ -1,8 +1,10 @@
+/* global window, document -- callbacks of page.evaluate run in the browser */
 /**
- * Renders promo/orbit-promo.html to an MP4 (1080x1920, 30 fps) frame by
- * frame with the installed Chrome and ffmpeg.
- *   node promo/render.mjs                 -> promo/orbit-promo.mp4
- *   node promo/render.mjs --frames 1,6,9  -> PNG stills at those seconds
+ * Renders a promo page to an MP4 (30 fps) frame by frame with the installed
+ * Chrome and ffmpeg.
+ *   node promo/render.mjs                         -> orbit-promo.mp4 (1080x1920)
+ *   node promo/render.mjs --wide --audio a.m4a    -> orbit-promo-4k.mp4 (3840x2160, with sound)
+ *   node promo/render.mjs [--wide] --frames 1,6,9 -> PNG stills at those seconds
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -23,13 +25,27 @@ const stills = stillsArg > 0 ? process.argv[stillsArg + 1].split(",").map(Number
 const outDir = process.argv.includes("--out")
   ? process.argv[process.argv.indexOf("--out") + 1]
   : here;
+const wide = process.argv.includes("--wide");
+const audio = process.argv.includes("--audio")
+  ? process.argv[process.argv.indexOf("--audio") + 1]
+  : null;
+// The wide page is laid out at 1920x1080 and rendered at twice the density (4K).
+const PAGE = wide
+  ? {
+      file: "orbit-promo-wide.html",
+      width: 1920,
+      height: 1080,
+      scale: 2,
+      out: "orbit-promo-4k.mp4",
+    }
+  : { file: "orbit-promo.html", width: 1080, height: 1920, scale: 1, out: "orbit-promo.mp4" };
 
 const browser = await chromium.launch({ executablePath: CHROME });
 const page = await browser.newPage({
-  viewport: { width: 1080, height: 1920 },
-  deviceScaleFactor: 1,
+  viewport: { width: PAGE.width, height: PAGE.height },
+  deviceScaleFactor: PAGE.scale,
 });
-await page.goto(pathToFileURL(join(here, "orbit-promo.html")).href + "?capture");
+await page.goto(pathToFileURL(join(here, PAGE.file)).href + "?capture");
 await page.evaluate(() => document.fonts.ready);
 await page.waitForFunction(() => [...document.images].every((i) => i.complete));
 const stage = page.locator("#stage");
@@ -42,7 +58,7 @@ if (stills) {
   console.log(`saved ${stills.length} stills to ${outDir}`);
 } else {
   const duration = await page.evaluate(() => window.DURATION);
-  const out = join(here, "orbit-promo.mp4");
+  const out = join(here, PAGE.out);
   const ff = spawn(
     "ffmpeg",
     [
@@ -53,6 +69,7 @@ if (stills) {
       String(FPS),
       "-i",
       "-",
+      ...(audio ? ["-i", audio, "-c:a", "aac", "-b:a", "256k", "-shortest"] : []),
       "-c:v",
       "libx264",
       "-preset",

@@ -37,7 +37,7 @@ export default function FaqPage({ token: brand }: { token: PublicToken }) {
           </span>
         </HomeLink>
         <div className={s.spacer} />
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        {}
         <a className={s.btn} href="/rules">
           {copy.rules}
         </a>
@@ -57,7 +57,7 @@ export default function FaqPage({ token: brand }: { token: PublicToken }) {
             <p className={s.eyebrow}>{F.eyebrow}</p>
             <h1>{F.h1}</h1>
             <p className={s.heroLede}>
-              {F.lede} {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              {F.lede} {}
               <a className={s.inlineLink} href="/rules">
                 {F.rulesLink} →
               </a>

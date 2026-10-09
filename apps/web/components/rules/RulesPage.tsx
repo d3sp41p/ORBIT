@@ -515,7 +515,7 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
           </span>
         </HomeLink>
         <div className={s.spacer} />
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        {}
         <a className={s.btn} href="/faq">
           {copy.faq}
         </a>

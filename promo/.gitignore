@@ -1,3 +1,4 @@
 # Rendered videos and stills (re-create with: node promo/render.mjs)
 *.mp4
 frame-*.png
+*.m4a

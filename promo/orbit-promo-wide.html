@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ORBIT promo (wide)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700;800;900&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #fff;
+        --ink2: #c9ccd3;
+        --mute: #8a8f99;
+        --signal: #fc3d21;
+        --amber: #f2b33d;
+        --good: #5fd39a;
+        --line: rgba(255, 255, 255, 0.14);
+        --line2: rgba(255, 255, 255, 0.32);
+        --sans: "Public Sans", Arial, sans-serif;
+        --mono: "IBM Plex Mono", monospace;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #000;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+      #stage {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+        color: var(--ink);
+        font-family: var(--sans);
+      }
+      #bg {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+      }
+      .abs {
+        position: absolute;
+      }
+      .mono {
+        font-family: var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .red {
+        color: var(--signal);
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--signal);
+        margin-right: 14px;
+        box-shadow: 0 0 16px var(--signal);
+      }
+
+      #hud {
+        inset: 0;
+        pointer-events: none;
+      }
+      #hudTop {
+        left: 64px;
+        right: 64px;
+        top: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 16px;
+        color: var(--ink2);
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 16px;
+      }
+      #hudTop b {
+        color: var(--ink);
+        letter-spacing: 0.3em;
+      }
+      #hudTop .mid {
+        display: flex;
+        gap: 48px;
+        color: var(--mute);
+      }
+      #hudTop .mid b {
+        color: var(--ink);
+        letter-spacing: 0.12em;
+        font-weight: 500;
+        margin-left: 10px;
+      }
+      #hudBot {
+        left: 64px;
+        right: 64px;
+        bottom: 40px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 15px;
+        color: var(--mute);
+        border-top: 1px solid var(--line);
+        padding-top: 16px;
+      }
+      .bracket {
+        width: 34px;
+        height: 34px;
+        border-color: rgba(252, 61, 33, 0.7);
+        border-style: solid;
+        border-width: 0;
+      }
+
+      #s1 {
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+      }
+      #s1 img {
+        width: 280px;
+        height: 280px;
+      }
+      #s1 .t {
+        font-weight: 800;
+        font-size: 58px;
+        letter-spacing: 0.32em;
+        margin-left: 0.32em;
+      }
+      #s1 .bar {
+        width: 420px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.12);
+        position: relative;
+      }
+      #s1 .bar i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        background: var(--signal);
+        box-shadow: 0 0 20px var(--signal);
+      }
+      #s1 .st {
+        font-size: 20px;
+        color: var(--mute);
+        min-height: 28px;
+      }
+
+      #s2 {
+        left: 150px;
+        top: 250px;
+        right: 150px;
+      }
+      #s2 .eyebrow {
+        font-size: 20px;
+        color: var(--signal);
+        margin-bottom: 34px;
+      }
+      #s2 .line {
+        display: flex;
+        gap: 46px;
+      }
+      #s2 .w {
+        display: inline-block;
+        font-weight: 900;
+        font-size: 200px;
+        line-height: 1;
+        letter-spacing: -0.035em;
+      }
+      #s2 .w.world {
+        color: var(--signal);
+        text-shadow: 0 0 70px rgba(252, 61, 33, 0.55);
+      }
+      #s2 .under {
+        height: 8px;
+        background: var(--signal);
+        margin-top: 30px;
+        box-shadow: 0 0 30px var(--signal);
+      }
+
+      #s3a {
+        left: 150px;
+        top: 190px;
+        width: 780px;
+      }
+      #s3a .big {
+        font-weight: 900;
+        font-size: 92px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+      #s3a .sub {
+        margin-top: 24px;
+        font-size: 18px;
+        color: var(--mute);
+      }
+      #s3b {
+        left: 150px;
+        bottom: 150px;
+        width: 700px;
+        font-weight: 800;
+        font-size: 46px;
+        line-height: 1.12;
+      }
+
+      #s4h {
+        left: 150px;
+        top: 230px;
+        width: 700px;
+      }
+      #s4h .big {
+        font-weight: 900;
+        font-size: 96px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+      #chips {
+        margin-top: 56px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .chip {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        font-size: 44px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.18);
+      }
+      .chip i {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+      }
+      #card {
+        left: 1000px;
+        top: 170px;
+        width: 760px;
+        padding: 44px 48px 48px;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--line2);
+        box-shadow:
+          0 40px 120px rgba(0, 0, 0, 0.8),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      #card .cr {
+        font-size: 15px;
+        color: var(--mute);
+      }
+      #card h3 {
+        margin: 18px 0 12px;
+        font-size: 80px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      #card .stat {
+        font-size: 15px;
+        color: var(--ink2);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #card .stat .live {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--signal);
+        box-shadow: 0 0 12px var(--signal);
+      }
+      #card .facts {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 34px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+      }
+      #card .facts dt {
+        font-size: 13px;
+        color: var(--mute);
+      }
+      #card .facts dd {
+        margin: 8px 0 0;
+        font-weight: 800;
+        font-size: 50px;
+      }
+      #card .facts dd small {
+        font-size: 18px;
+        color: var(--mute);
+        font-weight: 500;
+        margin-left: 5px;
+      }
+      #card svg {
+        display: block;
+        width: 100%;
+        height: 190px;
+        margin-top: 24px;
+      }
+      #card .stab {
+        margin-top: 26px;
+      }
+      #card .stab .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        color: var(--mute);
+      }
+      #card .stab .row b {
+        color: var(--ink);
+        font-family: var(--mono);
+      }
+      #card .stab .b {
+        margin-top: 12px;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      #card .stab .b i {
+        display: block;
+        height: 100%;
+        background: var(--good);
+        box-shadow: 0 0 16px var(--good);
+      }
+
+      #s5h {
+        left: 150px;
+        top: 230px;
+        width: 720px;
+      }
+      #s5h .mono {
+        font-size: 18px;
+        color: var(--mute);
+        display: flex;
+        align-items: center;
+      }
+      #s5h .big {
+        margin-top: 22px;
+        font-weight: 900;
+        font-size: 96px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+      #s5h .cap {
+        margin-top: 40px;
+        font-size: 18px;
+        color: var(--ink2);
+        line-height: 1.7;
+      }
+      .news {
+        left: 1000px;
+        width: 760px;
+        padding: 26px 32px;
+        border: 1px solid var(--line2);
+        background: rgba(8, 9, 12, 0.88);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+      }
+      .news .meta {
+        font-size: 14px;
+        display: flex;
+        gap: 20px;
+      }
+      .news .meta span:last-child {
+        color: var(--mute);
+      }
+      .news p {
+        margin: 12px 0 0;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+      .news small {
+        display: block;
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--mute);
+      }
+
+      #s6 {
+        left: 150px;
+        top: 230px;
+        width: 820px;
+      }
+      #s6 .l {
+        font-weight: 900;
+        font-size: 116px;
+        line-height: 0.98;
+        letter-spacing: -0.035em;
+      }
+      #s6 .k {
+        font-size: 22px;
+        margin-bottom: 14px;
+      }
+      #s6 .g {
+        color: var(--good);
+        text-shadow: 0 0 50px rgba(95, 211, 154, 0.5);
+      }
+      #s6 .r {
+        color: var(--signal);
+        text-shadow: 0 0 50px rgba(252, 61, 33, 0.6);
+      }
+      #flash {
+        inset: 0;
+        background: radial-gradient(
+          circle at 70% 52%,
+          rgba(252, 61, 33, 0.9),
+          rgba(252, 61, 33, 0.15) 35%,
+          transparent 65%
+        );
+        mix-blend-mode: screen;
+      }
+
+      #s7 {
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      #s7 img {
+        width: 260px;
+        height: 260px;
+      }
+      #s7 .name {
+        margin-top: 10px;
+        font-weight: 900;
+        font-size: 150px;
+        letter-spacing: 0.16em;
+        margin-left: 0.16em;
+      }
+      #s7 .tag {
+        margin-top: 14px;
+        font-weight: 700;
+        font-size: 46px;
+      }
+      #s7 .url {
+        margin-top: 46px;
+        font-size: 30px;
+        color: var(--signal);
+      }
+      #s7 .tk {
+        margin-top: 14px;
+        font-size: 17px;
+        color: var(--mute);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <!-- the camera shakes, the stage never moves (it is what gets captured) -->
+      <div id="cam" class="abs" style="inset: 0">
+        <canvas id="bg" width="3840" height="2160"></canvas>
+        <div id="flash" class="abs" style="opacity: 0"></div>
+
+        <section id="s1" class="abs">
+          <img id="logo1" src="../apps/web/public/logo.png" alt="" />
+          <div class="t">ORBIT DSN</div>
+          <div class="bar"><i id="bar1"></i></div>
+          <div class="st mono" id="st1"></div>
+        </section>
+
+        <section id="s2" class="abs">
+          <div class="eyebrow mono" id="e2">Holder exploration program</div>
+          <div class="line">
+            <span class="w" id="w1">Every</span><span class="w" id="w2">holder</span>
+          </div>
+          <div class="line">
+            <span class="w" id="w3">is a</span><span class="w world" id="w4">world.</span>
+          </div>
+          <div class="under" id="u2"></div>
+        </section>
+
+        <section id="s3a" class="abs">
+          <div class="big">Hold the token.<br /><span class="red">Get a planet.</span></div>
+          <div class="sub mono">Every holder orbits the coin-star</div>
+        </section>
+        <section id="s3b" class="abs">The star grows<br />with the market cap.</section>
+
+        <section id="s4h" class="abs">
+          <div class="big">Every world<br />has a <span class="red">story.</span></div>
+          <div id="chips">
+            <div class="chip" id="c1"><i></i>Oceans</div>
+            <div class="chip" id="c2"><i></i>Life</div>
+            <div class="chip" id="c3"><i></i>Civilizations</div>
+          </div>
+        </section>
+        <section id="card" class="abs">
+          <div class="cr mono">System / Rocky worlds / #12</div>
+          <h3 id="cname">New Eden</h3>
+          <div class="stat mono">
+            <span class="live"></span>Active · Day 117 · Orbit era · Arboreal
+          </div>
+          <dl class="facts">
+            <div>
+              <dt class="mono">Temperature</dt>
+              <dd><span id="f1">34</span><small>°C</small></dd>
+            </div>
+            <div>
+              <dt class="mono">Population</dt>
+              <dd><span id="f2">66</span><small>B</small></dd>
+            </div>
+            <div>
+              <dt class="mono">Technology</dt>
+              <dd id="f3">4.20</dd>
+            </div>
+          </dl>
+          <svg viewBox="0 0 900 260" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#fc3d21" stop-opacity=".35" />
+                <stop offset="1" stop-color="#fc3d21" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <g stroke="rgba(255,255,255,.08)">
+              <line x1="0" y1="65" x2="900" y2="65" />
+              <line x1="0" y1="130" x2="900" y2="130" />
+              <line x1="0" y1="195" x2="900" y2="195" />
+            </g>
+            <path id="gfill" fill="url(#gf)" d="" />
+            <path id="gline" fill="none" stroke="#fc3d21" stroke-width="4" d="" />
+            <circle id="gdot" r="9" fill="#fff" />
+          </svg>
+          <div class="stab">
+            <div class="row mono"><span>Stability</span><b id="sv">82 / 100</b></div>
+            <div class="b"><i id="sb"></i></div>
+          </div>
+        </section>
+
+        <section id="s5h" class="abs">
+          <div class="mono"><span class="dot"></span>Mission news · live</div>
+          <div class="big">Your hold<br />writes the<br /><span class="red">history.</span></div>
+          <div class="cap mono">Simulated from real on-chain events<br />Written live by AI</div>
+        </section>
+        <article class="news abs" id="n1" style="top: 190px">
+          <div class="meta mono">
+            <span style="color: #fff">Milestone</span><span>Day 32 · 14:05 UTC</span>
+          </div>
+          <p>Life! The first microbes appeared in salty lagoons.</p>
+          <small>New Eden · #12 · Rocky world</small>
+        </article>
+        <article class="news abs" id="n2" style="top: 430px">
+          <div class="meta mono">
+            <span style="color: #f2b33d">Discovery</span><span>Day 88 · 02:41 UTC</span>
+          </div>
+          <p>A black monolith turned up on the far side of the moon.</p>
+          <small>Solbro 8GI · #1 · Supergiant</small>
+        </article>
+        <article class="news abs" id="n3" style="top: 670px">
+          <div class="meta mono">
+            <span style="color: #fc3d21">Alert</span><span>Day 117 · 09:12 UTC</span>
+          </div>
+          <p>Nuclear winter: the holder sold 32% of their tokens.</p>
+          <small>Anix 8SK · #6 · Gas giant</small>
+        </article>
+
+        <section id="s6" class="abs">
+          <div id="h6a">
+            <div class="k mono g">Hold</div>
+            <div class="l">Your world<br /><span class="g">grows.</span></div>
+          </div>
+          <div id="h6b" style="margin-top: 70px">
+            <div class="k mono r">Sell</div>
+            <div class="l"><span class="r">Catastrophe.</span></div>
+          </div>
+        </section>
+
+        <section id="s7" class="abs">
+          <img id="logo7" src="../apps/web/public/logo.png" alt="" />
+          <div class="name">ORBIT</div>
+          <div class="tag">Every holder is a <span class="red">world.</span></div>
+          <div class="url mono">orbit.mba</div>
+          <div class="tk mono">$ORBIT · live on Solana</div>
+        </section>
+
+        <section id="hud" class="abs">
+          <div id="hudTop" class="abs mono">
+            <span><span class="dot"></span><b>ORBIT</b>&nbsp;&nbsp;Deep space network</span>
+            <span class="mid"
+              ><span>Objects<b>650</b></span
+              ><span>Star<b>G · Yellow dwarf</b></span
+              ><span>Market cap<b id="mcap">$1.84M</b></span></span
+            >
+            <span id="utc">UTC 12:00:00</span>
+          </div>
+          <div id="hudBot" class="abs mono">
+            <span id="met">T+117d 04:05:24</span><span>Holder exploration program</span
+            ><span>orbit.mba</span>
+          </div>
+          <div
+            class="abs bracket"
+            style="left: 64px; top: 96px; border-left-width: 3px; border-top-width: 3px"
+          ></div>
+          <div
+            class="abs bracket"
+            style="right: 64px; top: 96px; border-right-width: 3px; border-top-width: 3px"
+          ></div>
+          <div
+            class="abs bracket"
+            style="left: 64px; bottom: 96px; border-left-width: 3px; border-bottom-width: 3px"
+          ></div>
+          <div
+            class="abs bracket"
+            style="right: 64px; bottom: 96px; border-right-width: 3px; border-bottom-width: 3px"
+          ></div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      /*
+       * ORBIT promo, 16:9 (1920x1080 layout, rendered at 3840x2160), 33.5 s,
+       * timed to the voice-over. Every frame is a pure function of time.
+       */
+      const DURATION = 33.5;
+      const W = 1920,
+        H = 1080,
+        PR = 2;
+      const $ = (id) => document.getElementById(id);
+      const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+      const seg = (t, a, b) => clamp((t - a) / (b - a));
+      const out3 = (x) => 1 - Math.pow(1 - clamp(x), 3);
+      const outBack = (x) => {
+        x = clamp(x);
+        const c = 1.7;
+        return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2);
+      };
+      const inOut = (x) => {
+        x = clamp(x);
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+      };
+      const win = (t, a, b, fi = 0.35, fo = 0.35) =>
+        Math.min(seg(t, a, a + fi), 1 - seg(t, b - fo, b));
+
+      /* Scene times (seconds), matched to the voice lines. */
+      const T = {
+        boot: [0, 3.4],
+        type: [3.4, 7.3],
+        sys: [7.3, 12.4],
+        card: [12.4, 18.9],
+        news: [18.9, 23.2],
+        fate: [23.2, 29.4],
+        outro: [29.4, 33.5],
+        words: [3.82, 4.2, 4.95, 5.3],
+        chips: [15.77, 16.58, 17.18],
+        hold: 23.62,
+        grow: [24.3, 25.6],
+        sell: 26.65,
+        hit: 27.55,
+      };
+
+      let seed = 11;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const STARS = Array.from({ length: 700 }, () => ({
+        x: rnd() * W,
+        y: rnd() * H,
+        r: rnd() < 0.08 ? 1.8 : 0.8 + rnd() * 0.7,
+        a: 0.2 + rnd() * 0.7,
+        tw: rnd() * 6.28,
+        z: 0.3 + rnd() * 0.7,
+      }));
+      const PLANETS = [
+        {
+          r: 150,
+          s: 0.55,
+          a: -1.2,
+          size: 11,
+          c: ["#c9f0ff", "#4f9fc4"],
+          label: "VELOR 2KD",
+          sub: "#9 · ICE GIANT",
+        },
+        {
+          r: 240,
+          s: 0.38,
+          a: 1.4,
+          size: 16,
+          c: ["#f2c58c", "#c46a35"],
+          label: "ANIX 8SK",
+          sub: "#6 · GAS GIANT",
+        },
+        {
+          r: 340,
+          s: 0.27,
+          a: -2.4,
+          size: 13,
+          c: ["#7fb8d8", "#2f6b4f"],
+          label: "NEW EDEN",
+          sub: "#12 · ROCKY WORLD",
+          hot: true,
+        },
+        {
+          r: 440,
+          s: 0.2,
+          a: 0.2,
+          size: 19,
+          c: ["#e0b98a", "#9a5a3a"],
+          label: "SOLBRO 8GI",
+          sub: "#1 · SUPERGIANT",
+        },
+        { r: 520, s: 0.16, a: 3.3, size: 7, c: ["#b9b2a8", "#6b645c"] },
+        { r: 560, s: 0.14, a: 5.4, size: 6, c: ["#b9b2a8", "#6b645c"] },
+      ];
+      const ASTEROIDS = Array.from({ length: 130 }, () => ({
+        r: 500 + rnd() * 130,
+        a: rnd() * 6.28,
+        s: 0.08 + rnd() * 0.06,
+        size: 1.2 + rnd() * 2,
+      }));
+
+      const cv = $("bg"),
+        g = cv.getContext("2d");
+      g.scale(PR, PR);
+
+      function sky(t) {
+        g.fillStyle = "#000";
+        g.fillRect(0, 0, W, H);
+        const neb = g.createRadialGradient(W * 0.72, H * 0.3, 0, W * 0.72, H * 0.3, 900);
+        neb.addColorStop(0, "rgba(40,24,60,.35)");
+        neb.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = neb;
+        g.fillRect(0, 0, W, H);
+        for (const s of STARS) {
+          const x = (s.x - t * 10 * s.z + W) % W;
+          g.globalAlpha = s.a * (0.65 + 0.35 * Math.sin(t * 2 + s.tw));
+          g.fillStyle = "#fff";
+          g.fillRect(x, s.y, s.r, s.r);
+        }
+        g.globalAlpha = 1;
+      }
+
+      function grid(t, alpha) {
+        if (alpha <= 0) return;
+        const hz = 760,
+          vx = W / 2;
+        g.save();
+        g.globalAlpha = alpha;
+        g.lineWidth = 1.2;
+        for (let i = -24; i <= 24; i++) {
+          g.strokeStyle = "rgba(255,255,255,.09)";
+          g.beginPath();
+          g.moveTo(vx + i * 40, hz);
+          g.lineTo(vx + i * 230, H);
+          g.stroke();
+        }
+        const sp = (t * 0.6) % 1;
+        for (let j = 0; j < 12; j++) {
+          const d = (j + sp) / 12,
+            y = hz + Math.pow(d, 2.2) * (H - hz);
+          g.strokeStyle = `rgba(255,255,255,${0.04 + d * 0.12})`;
+          g.beginPath();
+          g.moveTo(0, y);
+          g.lineTo(W, y);
+          g.stroke();
+        }
+        const glow = g.createLinearGradient(0, hz - 50, 0, hz + 60);
+        glow.addColorStop(0, "rgba(252,61,33,0)");
+        glow.addColorStop(0.5, "rgba(252,61,33,.32)");
+        glow.addColorStop(1, "rgba(252,61,33,0)");
+        g.fillStyle = glow;
+        g.fillRect(0, hz - 50, W, 110);
+        g.restore();
+      }
+
+      function starGlow(x, y, r, alpha) {
+        const gr = g.createRadialGradient(x, y, 0, x, y, r * 6);
+        gr.addColorStop(0, `rgba(255,248,225,${alpha})`);
+        gr.addColorStop(0.12, `rgba(255,214,140,${alpha * 0.9})`);
+        gr.addColorStop(0.35, `rgba(252,140,60,${alpha * 0.25})`);
+        gr.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, y, r * 6, 0, 6.29);
+        g.fill();
+      }
+
+      function ball(x, y, r, c, alpha = 1) {
+        g.globalAlpha = alpha;
+        const gr = g.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r);
+        gr.addColorStop(0, c[0]);
+        gr.addColorStop(0.6, c[1]);
+        gr.addColorStop(1, "#05070a");
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, y, r, 0, 6.29);
+        g.fill();
+        g.globalAlpha = 1;
+      }
+
+      function system(t, alpha, p, cx, cy, scale, labels = true) {
+        if (alpha <= 0) return;
+        g.save();
+        g.globalAlpha = alpha;
+        const tilt = 0.32;
+        starGlow(cx, cy, 30 * scale, 1);
+        for (const pl of PLANETS) {
+          const rr = pl.r * scale * out3(p);
+          g.strokeStyle = pl.hot ? "rgba(252,61,33,.85)" : "rgba(255,255,255,.16)";
+          g.lineWidth = pl.hot ? 2.2 : 1.1;
+          g.beginPath();
+          g.ellipse(cx, cy, rr, rr * tilt, 0, 0, 6.29);
+          g.stroke();
+        }
+        for (const a of ASTEROIDS) {
+          const ang = a.a + t * a.s,
+            rr = a.r * scale * out3(p);
+          g.fillStyle = "rgba(200,190,180,.55)";
+          g.fillRect(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr * tilt, a.size, a.size);
+        }
+        for (const pl of PLANETS) {
+          const ang = pl.a + t * pl.s,
+            rr = pl.r * scale * out3(p);
+          const x = cx + Math.cos(ang) * rr,
+            y = cy + Math.sin(ang) * rr * tilt;
+          ball(x, y, pl.size * scale, pl.c, alpha);
+          if (labels && pl.label && p > 0.9) {
+            g.globalAlpha = alpha * seg(p, 0.9, 1);
+            const dir = x > W - 300 ? -1 : 1;
+            g.textAlign = dir > 0 ? "left" : "right";
+            g.strokeStyle = pl.hot ? "#fc3d21" : "rgba(255,255,255,.55)";
+            g.lineWidth = 1.3;
+            g.beginPath();
+            g.moveTo(x + dir * pl.size * scale, y - pl.size * scale);
+            g.lineTo(x + dir * 34, y - 40);
+            g.lineTo(x + dir * 60, y - 40);
+            g.stroke();
+            g.fillStyle = "#fff";
+            g.font = "600 17px 'IBM Plex Mono'";
+            g.fillText(pl.label, x + dir * 66, y - 45);
+            g.fillStyle = pl.hot ? "#fc3d21" : "#8a8f99";
+            g.font = "500 13px 'IBM Plex Mono'";
+            g.fillText(pl.sub, x + dir * 66, y - 26);
+            g.textAlign = "left";
+            if (pl.hot) {
+              const b = pl.size * scale + 14,
+                L = 10;
+              g.strokeStyle = "#fc3d21";
+              g.lineWidth = 2.2;
+              for (const [sx, sy] of [
+                [-1, -1],
+                [1, -1],
+                [-1, 1],
+                [1, 1],
+              ]) {
+                g.beginPath();
+                g.moveTo(x + sx * b, y + sy * (b - L));
+                g.lineTo(x + sx * b, y + sy * b);
+                g.lineTo(x + sx * (b - L), y + sy * b);
+                g.stroke();
+              }
+            }
+            g.globalAlpha = alpha;
+          }
+        }
+        g.restore();
+      }
+
+      /** A planet that grows while held, then an asteroid hits on "catastrophe". */
+      function holdSell(t, alpha) {
+        if (alpha <= 0) return;
+        const cx = 1380,
+          cy = 560;
+        const grow = out3(seg(t, T.grow[0], T.grow[1]));
+        const hitAt = T.hit,
+          hit = seg(t, hitAt - 0.05, hitAt + 0.25);
+        const dead = t > hitAt;
+        const r = 130 + grow * 60 - (dead ? 22 * out3(seg(t, hitAt, hitAt + 0.5)) : 0);
+        g.save();
+        g.globalAlpha = alpha;
+        starGlow(cx - 560, cy - 300, 9, 0.7);
+        g.strokeStyle = `rgba(242,197,140,${0.6 * grow * (1 - hit)})`;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.ellipse(cx, cy, r * 1.9, r * 0.5, -0.25, 0, 6.29);
+        g.stroke();
+        ball(cx, cy, r, dead ? ["#a26a52", "#4a2a20"] : ["#7fb8d8", "#2f6b4f"], alpha);
+        if (!dead)
+          for (let i = 0; i < 30; i++) {
+            const a = i * 2.39,
+              d = ((i % 7) / 8) * r * 0.85;
+            g.fillStyle = `rgba(255,214,140,${0.85 * grow})`;
+            g.fillRect(cx + Math.cos(a) * d * 0.9 + r * 0.15, cy + Math.sin(a) * d * 0.6, 3, 3);
+          }
+        if (t > T.sell && t < hitAt + 0.05) {
+          const k = seg(t, T.sell + 0.1, hitAt);
+          const ax = cx + 640 - k * 640 + r * 0.45,
+            ay = cy - 520 + k * 520 - r * 0.3;
+          const tr = g.createLinearGradient(ax, ay, ax + 300, ay - 240);
+          tr.addColorStop(0, "rgba(255,180,120,.95)");
+          tr.addColorStop(1, "rgba(255,120,60,0)");
+          g.strokeStyle = tr;
+          g.lineWidth = 9;
+          g.beginPath();
+          g.moveTo(ax, ay);
+          g.lineTo(ax + 300, ay - 240);
+          g.stroke();
+          ball(ax, ay, 11, ["#ffe2c0", "#b06a3a"], alpha);
+        }
+        if (dead) {
+          const e = seg(t, hitAt, hitAt + 1.1);
+          g.strokeStyle = `rgba(252,61,33,${0.9 * (1 - e)})`;
+          g.lineWidth = 8;
+          g.beginPath();
+          g.arc(cx + r * 0.45, cy - r * 0.3, 20 + e * 300, 0, 6.29);
+          g.stroke();
+          g.strokeStyle = `rgba(255,140,80,${0.8 * (1 - e * 0.6)})`;
+          g.lineWidth = 3;
+          for (let i = 0; i < 8; i++) {
+            const a = i * 0.8 + 0.3;
+            g.beginPath();
+            g.moveTo(cx + r * 0.45, cy - r * 0.3);
+            g.lineTo(
+              cx + r * 0.45 + Math.cos(a) * r * 0.75 * out3(e * 3),
+              cy - r * 0.3 + Math.sin(a) * r * 0.75 * out3(e * 3),
+            );
+            g.stroke();
+          }
+        }
+        g.restore();
+      }
+
+      function show(el, o, tx = 0, ty = 0, sc = 1, blur = 0) {
+        el.style.opacity = o.toFixed(3);
+        el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+        el.style.transform = `translate(${tx}px, ${ty}px) scale(${sc})`;
+        el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(1)}px)` : "none";
+      }
+      function glitch(el, k, t) {
+        if (k <= 0) {
+          el.style.clipPath = "none";
+          el.style.textShadow = "";
+          return;
+        }
+        const s = Math.floor(t * 30);
+        const y1 = (s * 37) % 100,
+          h = 6 + ((s * 13) % 18),
+          dx = (((s * 53) % 60) - 30) * k;
+        el.style.clipPath = `polygon(0 0,100% 0,100% ${y1}%,${100 + dx / 10}% ${y1}%,${100 + dx / 10}% ${y1 + h}%,100% ${y1 + h}%,100% 100%,0 100%)`;
+        el.style.transform += ` translateX(${dx * (s % 2 ? 1 : -1) * 0.4}px)`;
+        el.style.textShadow = `${-6 * k}px 0 rgba(252,61,33,.8), ${6 * k}px 0 rgba(80,200,255,.6)`;
+      }
+      const pad = (n) => String(Math.floor(n)).padStart(2, "0");
+      const typed = (s, k) => s.slice(0, Math.round(s.length * clamp(k)));
+
+      function graph(k) {
+        const pts = [];
+        for (let i = 0; i <= 40; i++) {
+          const x = i / 40;
+          const y = 0.82 - 0.62 * Math.pow(x, 1.6) + 0.05 * Math.sin(x * 19);
+          pts.push([x * 900, y * 260]);
+        }
+        const n = Math.max(2, Math.round(pts.length * clamp(k)));
+        const p = pts.slice(0, n);
+        const d = p.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join("");
+        $("gline").setAttribute("d", d);
+        $("gfill").setAttribute("d", `${d}L${p[p.length - 1][0]},260L0,260Z`);
+        $("gdot").setAttribute("cx", p[p.length - 1][0]);
+        $("gdot").setAttribute("cy", p[p.length - 1][1]);
+      }
+
+      function render(t) {
+        g.save();
+        g.setTransform(PR, 0, 0, PR, 0, 0);
+        sky(t);
+        grid(
+          t,
+          Math.max(
+            win(t, 0, T.type[1], 0.8, 0.6) * 0.9,
+            win(t, T.fate[0] - 0.2, DURATION, 0.6, 0.4) * 0.6,
+          ),
+        );
+        system(
+          t,
+          win(t, T.sys[0] - 0.4, T.sys[1], 0.6, 0.6),
+          out3(seg(t, T.sys[0] - 0.3, T.sys[0] + 1.6)),
+          1260,
+          600,
+          1.05,
+        );
+        system(t, win(t, T.card[0], T.news[1], 0.6, 0.6) * 0.3, 1, 1260, 820, 0.95, false);
+        holdSell(t, win(t, T.fate[0], T.fate[1] + 0.2, 0.4, 0.5));
+        system(
+          t,
+          win(t, T.outro[0], DURATION + 0.3, 0.8, 0.1) * 0.45,
+          out3(seg(t, T.outro[0], T.outro[0] + 1.6)),
+          W / 2,
+          560,
+          1.1,
+          false,
+        );
+        g.restore();
+
+        show($("hud"), seg(t, 0.8, 1.6));
+        const sec = 12 * 3600 + 5 * 60 + t;
+        $("utc").textContent = `UTC ${pad(sec / 3600)}:${pad((sec / 60) % 60)}:${pad(sec % 60)}`;
+        const met = 117 * 86400 + 4 * 3600 + 5 * 60 + 24 + t * 37;
+        $("met").textContent =
+          `T+${Math.floor(met / 86400)}d ${pad((met / 3600) % 24)}:${pad((met / 60) % 60)}:${pad(met % 60)}`;
+        $("mcap").textContent = `$${(1.84 + 0.012 * t).toFixed(2)}M`;
+
+        // boot: "This is ORBIT" at 1.7 s
+        show($("s1"), win(t, T.boot[0], T.boot[1], 0.2, 0.35), 0, 0, 1 + 0.04 * seg(t, 0, 3.4));
+        glitch($("s1"), Math.max(1 - seg(t, 0.15, 0.9), seg(t, 3.05, 3.4)) * (t < 3.4 ? 1 : 0), t);
+        show($("logo1"), out3(seg(t, 0.1, 0.8)), 0, 0, 0.7 + 0.3 * outBack(seg(t, 0.1, 0.9)));
+        $("bar1").style.width = `${inOut(seg(t, 0.5, 1.7)) * 100}%`;
+        $("st1").textContent =
+          t < 1.7 ? typed("Establishing link…", seg(t, 0.5, 1.4)) : "Link established";
+        $("st1").style.color = t < 1.7 ? "" : "#5fd39a";
+
+        // "Every holder... is a world."
+        show(
+          $("s2"),
+          win(t, T.type[0], T.type[1], 0.2, 0.45),
+          0,
+          -100 * seg(t, T.type[1] - 0.45, T.type[1]),
+        );
+        show($("e2"), seg(t, 3.4, 3.8), 0, 16 * (1 - out3(seg(t, 3.4, 3.8))));
+        ["w1", "w2", "w3", "w4"].forEach((id, i) => {
+          const at = T.words[i] - 0.08,
+            k = seg(t, at, at + 0.4);
+          show($(id), out3(k), 0, 90 * (1 - out3(k)), 1 + 0.45 * (1 - outBack(k)), 16 * (1 - k));
+        });
+        $("u2").style.width = `${out3(seg(t, 5.4, 6.1)) * 100}%`;
+
+        // system
+        show(
+          $("s3a"),
+          win(t, T.sys[0], T.sys[1], 0.5, 0.4),
+          0,
+          34 * (1 - out3(seg(t, T.sys[0], T.sys[0] + 0.6))),
+        );
+        show($("s3b"), win(t, 9.6, T.sys[1], 0.5, 0.4), 0, 34 * (1 - out3(seg(t, 9.6, 10.2))));
+
+        // mission card: "Oceans, life, civilizations."
+        show(
+          $("s4h"),
+          win(t, T.card[0], T.card[1], 0.4, 0.4),
+          -50 * (1 - out3(seg(t, T.card[0], T.card[0] + 0.5))),
+        );
+        ["c1", "c2", "c3"].forEach((id, i) => {
+          const k = seg(t, T.chips[i] - 0.05, T.chips[i] + 0.3);
+          const el = $(id);
+          el.style.color = k > 0 ? `rgba(255,255,255,${0.18 + 0.82 * k})` : "";
+          el.style.transform = `translateX(${24 * out3(k)}px)`;
+          const dot = el.querySelector("i");
+          dot.style.background = k > 0 ? ["#4f9fc4", "#5fd39a", "#f2b33d"][i] : "";
+          dot.style.boxShadow =
+            k > 0 ? `0 0 ${20 * k}px ${["#4f9fc4", "#5fd39a", "#f2b33d"][i]}` : "";
+        });
+        const c = seg(t, T.card[0] + 0.2, T.card[0] + 1);
+        show(
+          $("card"),
+          win(t, T.card[0] + 0.2, T.card[1], 0.3, 0.4),
+          300 * (1 - out3(c)),
+          0,
+          0.94 + 0.06 * out3(c),
+        );
+        $("cname").textContent = typed("New Eden", seg(t, 12.9, 13.6)) || " ";
+        const fk = out3(seg(t, 13.3, 14.6));
+        $("f1").textContent = Math.round(34 * fk);
+        $("f2").textContent = Math.round(66 * fk);
+        $("f3").textContent = (4.2 * fk).toFixed(2);
+        graph(seg(t, 13.5, 16.5));
+        const sk = out3(seg(t, 14.2, 16.0));
+        $("sb").style.width = `${82 * sk}%`;
+        $("sv").textContent = `${Math.round(82 * sk)} / 100`;
+
+        // news
+        show(
+          $("s5h"),
+          win(t, T.news[0], T.news[1], 0.4, 0.4),
+          0,
+          26 * (1 - out3(seg(t, T.news[0], T.news[0] + 0.5))),
+        );
+        [
+          [19.3, "n1"],
+          [20.2, "n2"],
+          [21.1, "n3"],
+        ].forEach(([at, id]) => {
+          const k = seg(t, at, at + 0.5);
+          show($(id), win(t, at, T.news[1], 0.35, 0.4), 500 * (1 - out3(k)), 0, 1, 10 * (1 - k));
+        });
+        const ah = seg(t, 21.35, 21.75);
+        $("n3").style.borderColor = ah > 0 && ah < 1 ? "#fc3d21" : "";
+
+        // hold / sell
+        show($("s6"), win(t, T.fate[0], T.fate[1], 0.3, 0.4));
+        const ha = seg(t, T.hold - 0.1, T.hold + 0.4),
+          hb = seg(t, T.sell - 0.1, T.sell + 0.3);
+        show($("h6a"), out3(ha), -160 * (1 - out3(ha)), 0, 1, 12 * (1 - ha));
+        const shake = t > T.hit && t < T.hit + 0.6 ? (1 - seg(t, T.hit, T.hit + 0.6)) * 16 : 0;
+        show(
+          $("h6b"),
+          out3(hb),
+          Math.sin(t * 90) * shake,
+          Math.cos(t * 77) * shake,
+          1 + 0.3 * (1 - outBack(hb)),
+          12 * (1 - hb),
+        );
+        $("flash").style.opacity = (
+          t > T.hit - 0.02 ? Math.max(0, 1 - seg(t, T.hit, T.hit + 0.8)) * 0.85 : 0
+        ).toFixed(3);
+        $("cam").style.transform = shake
+          ? `translate(${Math.sin(t * 60) * shake * 0.5}px, ${Math.cos(t * 50) * shake * 0.5}px)`
+          : "";
+
+        // outro: "ORBIT." at 29.8, "Every holder is a world." at 31.25
+        show(
+          $("s7"),
+          seg(t, T.outro[0], T.outro[0] + 0.4),
+          0,
+          0,
+          1 + 0.04 * (1 - out3(seg(t, T.outro[0], 32))),
+        );
+        glitch($("s7"), (1 - seg(t, T.outro[0], T.outro[0] + 0.5)) * (t > T.outro[0] ? 1 : 0), t);
+        show($("logo7"), out3(seg(t, 29.45, 30.0)), 0, 0, 0.6 + 0.4 * outBack(seg(t, 29.45, 30.1)));
+        const parts = document.querySelectorAll("#s7 > div");
+        [29.75, 31.2, 31.9, 32.1].forEach((at, i) => {
+          const k = seg(t, at, at + 0.45);
+          show(parts[i], out3(k), 0, 30 * (1 - out3(k)));
+        });
+      }
+
+      window.render = render;
+      window.DURATION = DURATION;
+
+      if (!new URLSearchParams(location.search).has("capture")) {
+        const fit = () => {
+          $("stage").style.zoom = Math.min(innerWidth / W, innerHeight / H);
+        };
+        addEventListener("resize", fit);
+        fit();
+        const t0 = performance.now();
+        const loop = () => {
+          render(((performance.now() - t0) / 1000) % DURATION);
+          requestAnimationFrame(loop);
+        };
+        document.fonts.ready.then(() => requestAnimationFrame(loop));
+      }
+    </script>
+  </body>
+</html>
