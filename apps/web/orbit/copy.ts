@@ -357,8 +357,7 @@ export const rulesCopy = {
       lead: "Some accounts hold tokens but are not people. They never appear in the system:",
       points: [
         "the bonding curve and liquidity pools (program accounts),",
-        "the burn address,",
-        "team wallets.",
+        "the burn address.",
       ],
     },
   },
