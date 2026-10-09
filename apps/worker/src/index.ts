@@ -21,11 +21,20 @@ try {
 const server = startHealthServer(cfg!.port, state);
 console.log(`[worker] started on :${cfg!.port}, snapshot every ${cfg!.snapshotSec}s`);
 
+// Timeouts everywhere: a silently dropped connection must fail a query,
+// never leave it waiting forever (that froze every loop once).
 const db = new pg.Pool({
   connectionString: cfg!.dbUrl,
   ssl: { rejectUnauthorized: false },
   max: 5,
+  connectionTimeoutMillis: 15_000,
+  idleTimeoutMillis: 60_000,
+  query_timeout: 120_000,
+  statement_timeout: 120_000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
 });
+db.on("error", (e) => console.error("[worker] database connection error:", e.message));
 const helius = new Helius(cfg!.heliusKey);
 const token = new TokenController(db, helius, cfg!, state);
 const planets = new Planets(db);
@@ -38,18 +47,23 @@ state.heliusCredits = () => helius.credits;
 let stopping = false;
 const timers: NodeJS.Timeout[] = [];
 
+/** Loops that are running right now, with their start time (for the watchdog). */
+const running = new Map<string, number>();
+
 /** Run `fn` every `sec` seconds, never overlapping itself, logging failures. */
 function every(name: string, sec: number, fn: () => Promise<unknown>) {
   let busy = false;
   const run = async () => {
     if (busy || stopping) return;
     busy = true;
+    running.set(name, Date.now());
     try {
       await fn();
     } catch (e) {
       console.error(`[worker] ${name} failed:`, e instanceof Error ? e.message : e);
     } finally {
       busy = false;
+      running.delete(name);
     }
   };
   timers.push(setInterval(run, sec * 1000));
@@ -73,6 +87,23 @@ timers.push(
     () => console.log(`[worker] alive, Helius credits used ~${helius.credits}`),
     10 * 60_000,
   ),
+);
+
+// Watchdog: a loop stuck far longer than it should be means something hangs. Exit and let
+// the host restart the worker; ticks and events are caught up after a restart.
+// The token loop may restore a long history and ticks may catch up a backlog.
+const STUCK_MS: Record<string, number> = { token: 90 * 60_000, ticks: 30 * 60_000 };
+const DEFAULT_STUCK_MS = 10 * 60_000;
+timers.push(
+  setInterval(() => {
+    for (const [name, since] of running)
+      if (Date.now() - since > (STUCK_MS[name] ?? DEFAULT_STUCK_MS)) {
+        console.error(
+          `[worker] loop "${name}" stuck for ${Math.round((Date.now() - since) / 60_000)} min: restarting`,
+        );
+        process.exit(1);
+      }
+  }, 30_000),
 );
 
 function shutdown(signal: string) {
