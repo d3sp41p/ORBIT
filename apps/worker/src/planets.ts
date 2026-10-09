@@ -19,6 +19,7 @@ import {
   saveState,
   simHolder,
   tickAt,
+  TICK,
   DAY_MS,
   type PlanetClass,
   type Sell,
@@ -206,10 +207,13 @@ export class Planets {
       died_at: Date | null;
       updated_at: Date;
       sell_log: Sell[];
+      orphan: boolean;
     }>(
-      `select h.wallet, h.rank, h.died_at, h.updated_at, h.sell_log
+      // orphan: an older life left behind when the holder died, came back and
+      // died again between two passes (bots do this within minutes).
+      `select h.wallet, h.rank, h.died_at, h.updated_at, h.sell_log, ps.life_no < h.life_no as orphan
        from holders h join planet_state ps on ps.wallet = h.wallet
-       where h.status <> 'alive' and ps.life_no = h.life_no
+       where h.status <> 'alive' and ps.life_no <= h.life_no
        limit 200`,
     );
     if (!rows.length) return;
@@ -234,8 +238,36 @@ export class Planets {
           continue;
         }
         const holdStart = row.hold_started_at.getTime();
-        const diedAt = (r.died_at ?? r.updated_at).getTime();
         const S = loadState({ state: row.state, rngState: Number(row.rng_state) });
+        if (r.orphan) {
+          // Its exact end is unknown (the sell log belongs to a later life):
+          // it ends at its last simulated moment with the full sell.
+          const day = Math.max(0, (S.k - 1) * TICK);
+          const h = simHolder({
+            wallet: r.wallet,
+            nature: row.nature,
+            orbit: 0,
+            rank: Math.max(1, holdersCount),
+            holdersCount,
+            sells: [],
+          });
+          applySell(S, h, day, { frac: 1, at: day });
+          await this.insertEvents(
+            client,
+            {
+              wallet: r.wallet,
+              lifeNo: row.life_no,
+              nature: row.nature,
+              holdStart,
+              waterMax: S.waterMax,
+            },
+            S.news,
+          );
+          await this.archive(client, r.wallet, holdStart + day * DAY_MS, S);
+          await client.query("commit");
+          continue;
+        }
+        const diedAt = (r.died_at ?? r.updated_at).getTime();
         const sells = sellsWithMarks(r.sell_log, row.state.countedSells);
         const h = simHolder({
           wallet: r.wallet,
