@@ -35,5 +35,5 @@ jobs:
         run: pnpm check:secrets
       - name: Browser tests (Playwright)
         run: |
-          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright install --with-deps chromium firefox webkit
           pnpm e2e

@@ -8,9 +8,11 @@ import { expect, test, type Page } from "@playwright/test";
  * (wallet-e2e.ts) cover them against a configured environment.
  */
 
-async function ready(page: Page) {
-  // The loading screen goes away once the 3D system is built.
-  await expect(page.locator("#loading")).toHaveClass(/gone/, { timeout: 60_000 });
+/** Waits for the system; true when the browser had no WebGL and got the text view. */
+async function ready(page: Page): Promise<boolean> {
+  // The loading screen goes away once the 3D system (or the text view) is built.
+  await expect(page.locator("#loading")).toHaveClass(/gone/, { timeout: 90_000 });
+  return page.evaluate(() => document.body.classList.contains("text-mode"));
 }
 
 const panelTitle = (page: Page) => page.locator("#panel .m-head h2");
@@ -22,7 +24,7 @@ async function search(page: Page, q: string) {
 
 test("find a planet by address and name, open it, follow its link", async ({ page }) => {
   await page.goto("/");
-  await ready(page);
+  test.skip(await ready(page), "no WebGL in this browser: covered by the text view test");
 
   // "Visit #1" opens the biggest holder.
   await page.locator("#topBtn").click();
@@ -101,6 +103,9 @@ test("wallet picker shows Solana wallets and never mentions a transaction to sig
   });
   await page.goto("/");
   await ready(page);
+  // Phones keep the header links behind "Menu".
+  const menu = page.locator(".menu-btn");
+  if (await menu.isVisible()) await menu.click();
   await page.locator("#connectBtn").click();
   const dialog = page.locator(".wdlg");
   await expect(dialog).toBeVisible();
