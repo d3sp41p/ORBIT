@@ -51,6 +51,7 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
           <b>ORBIT DSN</b>
           <i />
           <span id="ldText">{t.loading}</span>
+          <span className="ld-claude">{t.claude.badge}</span>
         </div>
       </div>
 
@@ -164,6 +165,16 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         {}
         <a className="rules-link" href="/rules">
           {t.rulesLink} <span aria-hidden="true">→</span>
+        </a>
+        <a
+          className="claude-badge"
+          href={t.claude.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t.claude.note}
+        >
+          <span className="spark" aria-hidden="true" />
+          {t.claude.badge}
         </a>
       </section>
 

@@ -209,7 +209,7 @@ export async function planetImage(p: OgPlanet) {
           letterSpacing: 2,
         }}
       >
-        {`Every holder of $${token.ticker} is a world`}
+        {`Every holder of $${token.ticker} is a world  ·  Powered by Claude`}
       </span>
     </Frame>,
     OG_SIZE,
@@ -241,6 +241,9 @@ export async function siteImage() {
         </b>
         <span style={{ fontSize: 28, color: "#d6d9df" }}>
           {`A live star system built from $${token.ticker}`}
+        </span>
+        <span style={{ marginTop: 18, fontSize: 20, color: "#f2b33d", letterSpacing: 5 }}>
+          POWERED BY CLAUDE
         </span>
       </div>
     </Frame>,

@@ -96,6 +96,16 @@ export default function FaqPage({ token: brand }: { token: PublicToken }) {
 
         <footer className={s.footer} data-reveal>
           <HomeLink className={`${s.btn} ${s.primary}`}>{F.cta}</HomeLink>
+          <a
+            className="claude-badge"
+            href={copy.claude.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={copy.claude.note}
+          >
+            <span className="spark" aria-hidden="true" />
+            {copy.claude.badge}
+          </a>
         </footer>
       </main>
     </div>

@@ -1616,3 +1616,47 @@ dl.kv dd.num {
   outline: 2px solid var(--ink);
   outline-offset: -2px;
 }
+
+/* ================= "Powered by Claude" ================= */
+.claude-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 7px 12px;
+  font: 500 10.5px var(--f-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  flex: none;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+.claude-badge:hover,
+.claude-badge:focus-visible {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+/* a small four-point star */
+.claude-badge .spark {
+  width: 9px;
+  height: 9px;
+  background: var(--amber);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 4px rgba(242, 179, 61, 0.8));
+}
+.ld-claude {
+  margin-top: 6px;
+  font: 500 10px var(--f-mono);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--mute);
+}

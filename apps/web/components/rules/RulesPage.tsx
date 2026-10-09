@@ -652,6 +652,16 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
         <footer className={s.footer} data-reveal>
           <HomeLink className={`${s.btn} ${s.primary}`}>{R.cta}</HomeLink>
           <p>{R.disclaimer}</p>
+          <a
+            className="claude-badge"
+            href={copy.claude.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={copy.claude.note}
+          >
+            <span className="spark" aria-hidden="true" />
+            {copy.claude.badge}
+          </a>
         </footer>
       </main>
     </div>
