@@ -650,12 +650,13 @@
         news: [18.9, 23.2],
         fate: [23.2, 29.4],
         outro: [29.4, 33.5],
-        words: [3.82, 4.2, 4.95, 5.3],
-        chips: [15.77, 16.58, 17.18],
-        hold: 23.62,
-        grow: [24.3, 25.6],
-        sell: 26.65,
-        hit: 27.55,
+        // word times of the voice-over (Justin, voice lines at 1.6, 3.8, 7.7, 12.8, 19.2, 24.0, 29.8 s)
+        words: [3.8, 4.15, 4.88, 5.15],
+        chips: [14.87, 15.7, 16.48],
+        hold: 24.0,
+        grow: [24.3, 25.4],
+        sell: 25.82,
+        hit: 26.95,
       };
 
       let seed = 11;
@@ -1028,7 +1029,7 @@
             k = seg(t, at, at + 0.4);
           show($(id), out3(k), 0, 90 * (1 - out3(k)), 1 + 0.45 * (1 - outBack(k)), 16 * (1 - k));
         });
-        $("u2").style.width = `${out3(seg(t, 5.4, 6.1)) * 100}%`;
+        $("u2").style.width = `${out3(seg(t, 5.3, 6.0)) * 100}%`;
 
         // system
         show(
@@ -1123,7 +1124,7 @@
         glitch($("s7"), (1 - seg(t, T.outro[0], T.outro[0] + 0.5)) * (t > T.outro[0] ? 1 : 0), t);
         show($("logo7"), out3(seg(t, 29.45, 30.0)), 0, 0, 0.6 + 0.4 * outBack(seg(t, 29.45, 30.1)));
         const parts = document.querySelectorAll("#s7 > div");
-        [29.75, 31.2, 31.9, 32.1].forEach((at, i) => {
+        [29.8, 30.73, 31.4, 31.6].forEach((at, i) => {
           const k = seg(t, at, at + 0.45);
           show(parts[i], out3(k), 0, 30 * (1 - out3(k)));
         });

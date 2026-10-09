@@ -2,3 +2,7 @@
 *.mp4
 frame-*.png
 *.m4a
+*.mp3
+*.wav
+voice-samples/
+voice-justin/
