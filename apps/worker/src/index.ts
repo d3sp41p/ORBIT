@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import pg from "pg";
 import { AiWriter } from "./ai";
 import { TokenController } from "./controller";
@@ -5,6 +6,10 @@ import { loadConfig, type WorkerConfig } from "./env";
 import { startHealthServer, type HealthState } from "./health";
 import { Helius } from "./helius";
 import { Planets } from "./planets";
+
+// Errors go to Sentry when SENTRY_DSN is set (env.ts has loaded .env.local by now).
+if (process.env.SENTRY_DSN)
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: "worker", tracesSampleRate: 0 });
 
 const state: HealthState = { startedAt: new Date() };
 let cfg: WorkerConfig;
@@ -64,6 +69,7 @@ function every(name: string, sec: number, fn: () => Promise<unknown>) {
       await fn();
     } catch (e) {
       console.error(`[worker] ${name} failed:`, e instanceof Error ? e.message : e);
+      Sentry.captureException(e, { tags: { loop: name } });
     } finally {
       busy = false;
       running.delete(name);
@@ -114,7 +120,8 @@ timers.push(
         console.error(
           `[worker] loop "${name}" stuck for ${Math.round((Date.now() - since) / 60_000)} min: restarting`,
         );
-        process.exit(1);
+        Sentry.captureMessage(`loop "${name}" stuck, restarting`, "error");
+        void Sentry.flush(2000).finally(() => process.exit(1));
       }
   }, 30_000),
 );

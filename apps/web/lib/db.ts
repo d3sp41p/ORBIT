@@ -72,6 +72,11 @@ export async function liveAllowed(req: Request): Promise<boolean> {
   const key = process.env.PREVIEW_KEY;
   const preview = new URL(req.url).searchParams.get("preview");
   if (key && preview && preview === key) return true;
+  return launched();
+}
+
+/** Whether the coin is live (real data is public). */
+export async function launched(): Promise<boolean> {
   const { rows } = await select<{ launched: boolean }>("system_state?id=eq.1&select=launched", {
     revalidate: 15,
   });

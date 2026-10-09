@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import type { ReactNode } from "react";
@@ -19,9 +20,18 @@ const mono = IBM_Plex_Mono({
 const description =
   "Every holder is a world. A live star system where each token holder is a planet with its own story.";
 
+/** Absolute links in share cards: the production domain, or the preview deployment. */
+const site =
+  process.env.SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "https://www.orbit.mba");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(site),
   title: "ORBIT · Deep Space Network",
   description,
+  twitter: { card: "summary_large_image", title: "ORBIT · Deep Space Network", description },
   openGraph: {
     title: "ORBIT · Deep Space Network",
     description,
@@ -39,7 +49,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }

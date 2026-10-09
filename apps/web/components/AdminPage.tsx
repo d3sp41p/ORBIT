@@ -94,7 +94,15 @@ export default function AdminPage({ token }: { token: PublicToken }) {
       <header className="adm-top">
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a className="brand" href="/">
-          <Image className="brand-logo" src="/logo.png" alt="" width={40} height={40} priority />
+          <Image
+            className="brand-logo"
+            src="/logo.png"
+            unoptimized
+            alt=""
+            width={40}
+            height={40}
+            priority
+          />
           <span>
             <b>{token.name}</b>
             <small>{copy.agency}</small>

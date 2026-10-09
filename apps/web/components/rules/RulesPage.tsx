@@ -19,7 +19,11 @@ import s from "./rules.module.css";
  * Plain link back to the system view. A full page load on purpose: the 3D
  * engine starts once per document.
  */
-const HomeLink = (props: { className?: string; children: ReactNode; "aria-label"?: string }) => (
+export const HomeLink = (props: {
+  className?: string;
+  children: ReactNode;
+  "aria-label"?: string;
+}) => (
   // eslint-disable-next-line @next/next/no-html-link-for-pages
   <a href="/" {...props} />
 );
@@ -36,7 +40,7 @@ const rgb = (c: readonly number[]) =>
   `rgb(${c.map((v) => Math.round(Math.min(1, v) * 255)).join(",")})`;
 
 /** Adds the "in view" class when a block scrolls into view (once). */
-function useReveal() {
+export function useReveal() {
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = root.current;
@@ -496,13 +500,25 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
       <div className={s.sky} aria-hidden="true" />
       <header className={s.top}>
         <HomeLink className={s.brand}>
-          <Image className={s.logo} src="/logo.png" alt="" width={40} height={40} priority />
+          <Image
+            className={s.logo}
+            src="/logo.png"
+            unoptimized
+            alt=""
+            width={40}
+            height={40}
+            priority
+          />
           <span>
             <b>{brand.name}</b>
             <small>{copy.agency}</small>
           </span>
         </HomeLink>
         <div className={s.spacer} />
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a className={s.btn} href="/faq">
+          {copy.faq}
+        </a>
         <HomeLink className={s.btn} aria-label={R.back}>
           <span aria-hidden="true">←</span> <span className={s.backText}>{R.back}</span>
         </HomeLink>
@@ -624,7 +640,6 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
           title={r.owner.title}
           lead={r.owner.lead}
           points={r.owner.points}
-          badge={r.owner.soon}
         />
         <Rule
           id="excluded"

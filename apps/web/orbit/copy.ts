@@ -37,6 +37,8 @@ export const copy = {
   },
   demo: "Demo data",
   rules: "Rules",
+  faq: "FAQ",
+  menu: "Menu",
   rulesLink: "Read the mission rules",
   buy: (ticker: string) => `Buy $${ticker}`,
   zoomIn: "Zoom in",
@@ -48,6 +50,14 @@ export const copy = {
   loading: "Establishing link…",
   slowLoad: "Still loading the 3D engine. Check your connection or try reloading.",
   noWebgl: "WebGL is not available on this device, so the 3D system can't be shown.",
+  textView: {
+    eyebrow: "Text view",
+    title: "The system as a list",
+    note: "3D graphics are not available on this device, so every world is listed here. Open one to see its full mission page.",
+    worlds: "Worlds",
+    none: "No world matches.",
+    more: (n: number) => `Show more (${n.toLocaleString("en-US")} left)`,
+  },
   sceneError: (msg: string) =>
     `The 3D scene could not start: ${msg}. Try a desktop browser with WebGL enabled.`,
   missionPage: "Mission page",
@@ -343,12 +353,12 @@ export const rulesCopy = {
     owner: {
       tag: "Rule 10",
       title: "Your planet, your names",
-      soon: "Coming soon",
       lead: "Connect your wallet and sign a message to name your planet, species, capital and motto.",
       points: [
-        "Only the owner of a planet can change it.",
+        "Only the owner of a planet can change it, once a day. Empty fields keep the stock names.",
         "We will never ask you to sign a transaction. Signing in only proves you own the wallet.",
-        "Names are checked for abuse and can be reported.",
+        "Names are checked for abuse and can be reported; a moderator can hide them.",
+        "Your names appear everywhere: on the map, in search, in every news story and in the chronicle.",
       ],
     },
     excluded: {
@@ -360,5 +370,90 @@ export const rulesCopy = {
   },
   disclaimer:
     "ORBIT is an entertainment visualisation. Planets, civilizations and events have no monetary value and are not financial advice.",
+  cta: "Find your planet",
+} as const;
+
+/** FAQ and disclaimer page. Numbers come from the balance config and the token. */
+export const faqCopy = {
+  title: "FAQ",
+  metaDescription:
+    "Questions about ORBIT: how to get a planet, what selling does, wallet safety, AI news and the disclaimer.",
+  eyebrow: "Mission briefing",
+  h1: "Questions & answers",
+  lede: "Everything a new crew member asks first. The full rules of the game are on the rules page.",
+  rulesLink: "Read the mission rules",
+  tag: "Question",
+  items: (p: { ticker: string; min: string; ignore: string; rings: number }) => [
+    {
+      q: "What is ORBIT?",
+      a: [
+        `A live star system built from the $${p.ticker} token. The star is the coin itself and grows with its market cap. Every holder is a planet that lives its own simulated history: oceans, life, cities, wars, discoveries.`,
+      ],
+    },
+    {
+      q: "How do I get a planet?",
+      a: [
+        `Hold at least ${p.min} $${p.ticker} in one wallet. A planet forms a few seconds after the purchase reaches the blockchain, at the outer edge of the system.`,
+        "The longer you hold, the closer your orbit, the further your world develops and the more stable it becomes.",
+      ],
+    },
+    {
+      q: "What happens if I sell?",
+      a: [
+        `Sells strike your planet: the bigger the share sold, the harder the catastrophe, from a meteor strike to an extinction event. Sells under ${p.ignore} of your balance go unnoticed.`,
+        "Selling everything destroys the planet. A cloud of debris stays on its orbit for 24 hours, and its story goes to the archive. Buying again starts a brand new planet from scratch.",
+      ],
+    },
+    {
+      q: "Is a transfer to another wallet a sell?",
+      a: [
+        "Yes. A transfer counts as a sell for the sender and a buy for the receiver, exactly as the blockchain records it. Moving tokens between your own wallets therefore hits the planet of the wallet you move them from.",
+      ],
+    },
+    {
+      q: "Why does my planet change size?",
+      a: [
+        "Size follows your current rank among holders: the biggest holders are giants, the smallest are asteroids. The nature of a planet (rocky, gas, ice or asteroid world) is fixed at birth and never changes.",
+      ],
+    },
+    {
+      q: "Is connecting my wallet safe?",
+      a: [
+        "We will never ask you to sign a transaction. Connecting is only needed to customize your own planet: you sign a short text message that proves you own the wallet. It costs nothing, moves no tokens and gives the site no permissions.",
+        "Watching the system needs no wallet at all.",
+      ],
+    },
+    {
+      q: "Can I rename my planet?",
+      a: [
+        "Yes: connect the wallet that holds the planet, open it and press Customize planet. You can set the planet name, species, capital and motto once a day. Names are checked for abuse and can be reported.",
+      ],
+    },
+    {
+      q: "Who writes the news?",
+      a: [
+        "The simulation decides everything that happens. Claude, an AI by Anthropic, then writes the press releases and chronicles from those facts, keeping every number exactly as the simulation produced it. If the AI is unavailable, short template texts are shown instead.",
+      ],
+    },
+    {
+      q: "Why don't I see my wallet?",
+      a: [
+        `Check that it holds at least ${p.min} $${p.ticker}; smaller balances do not form a planet. New planets appear within seconds, in rare cases within a minute. Program accounts such as liquidity pools and the burn address never appear.`,
+      ],
+    },
+    {
+      q: "What do rings and achievements mean?",
+      a: [
+        `Rings grow around planets held for ${p.rings} days without a sell. Achievements mark milestones such as being among the first holders, holding a top rank or surviving a catastrophe.`,
+      ],
+    },
+  ],
+  disclaimerTitle: "Disclaimer",
+  disclaimer: [
+    "ORBIT is an entertainment visualisation of public blockchain data. Planets, civilizations, events and achievements are generated by a game simulation and an AI writer; they have no monetary value and are not a promise of anything.",
+    "Nothing on this site is financial, investment or legal advice. Crypto tokens are highly volatile and you can lose everything you put in. Do your own research and never invest more than you can afford to lose.",
+    "We will never ask you to sign a transaction, share a seed phrase or send tokens. Anyone who does is not us.",
+    "ORBIT is an independent project and is not affiliated with NASA or any space agency.",
+  ],
   cta: "Find your planet",
 } as const;

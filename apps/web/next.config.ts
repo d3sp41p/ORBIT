@@ -15,6 +15,8 @@ const PUBLIC_ENV = [
   "BUY_URL",
   "X_URL",
   "MIN_HOLDING_TOKENS",
+  // Sentry DSN: public by design, the browser needs it to report errors.
+  "SENTRY_DSN",
 ] as const;
 
 const nextConfig: NextConfig = {

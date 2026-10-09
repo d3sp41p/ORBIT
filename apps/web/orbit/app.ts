@@ -133,7 +133,10 @@ export async function start(opts: StartOptions) {
       else account.toast(t.noPlanetYet(brand.ticker, fmt(brand.minHolding)));
     },
   });
+  // Set once the 3D view is built; the text view (no WebGL) never sets it.
+  let engineReady = false;
   account.onChange(() => {
+    if (!engineReady) return;
     editing = reporting = false;
     if (!panel.hidden && !starPanel && selected) renderPanel();
   });
@@ -182,15 +185,24 @@ export async function start(opts: StartOptions) {
   const glc = $<HTMLCanvasElement>("gl");
   let renderer: THREE.WebGLRenderer;
   try {
+    if (opts.overrides?.get("text") === "1") throw new Error("text view requested");
     renderer = new THREE.WebGLRenderer({
       canvas: glc,
       antialias: true,
       powerPreference: "high-performance",
     });
-  } catch (e) {
+  } catch {
+    // No WebGL: the same data as a list, the same mission pages.
     clearTimeout(slowTimer);
-    fail(t.noWebgl);
-    throw e;
+    const { startTextView } = await import("./textview");
+    startTextView({
+      source,
+      data: first,
+      ticker: brand.ticker,
+      account,
+      initialWallet: opts.initialWallet,
+    });
+    return;
   }
   const dpr = () => Math.min(devicePixelRatio, Q.maxDpr);
   renderer.setPixelRatio(dpr());
@@ -1019,6 +1031,7 @@ export async function start(opts: StartOptions) {
   let editing = false;
   let editErr = "";
   let reporting = false;
+  engineReady = true;
 
   async function loadCard(h: Body, keepScroll: boolean, fresh = false) {
     const req = ++cardRequest;

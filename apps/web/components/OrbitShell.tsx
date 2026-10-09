@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { copy as t } from "@/orbit/copy";
 import type { PublicToken } from "@/lib/token";
 
@@ -10,6 +10,17 @@ import type { PublicToken } from "@/lib/token";
  * these elements by id after mount, so the shell itself renders on the server.
  */
 export default function OrbitShell({ token }: { token: PublicToken }) {
+  // Phones: the header links live behind a "Menu" button.
+  const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as Element).closest(".top")) setMenu(false);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menu]);
+
   useEffect(() => {
     const m = location.pathname.match(/^\/planet\/([^/]+)/);
     const initialWallet = m ? decodeURIComponent(m[1]!) : null;
@@ -28,18 +39,34 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
       <canvas id="ov" />
       <div id="loading">
         <div className="ld">
-          <Image className="ld-logo" src="/logo.png" alt="" width={84} height={84} priority />
+          <Image
+            className="ld-logo"
+            src="/logo.png"
+            unoptimized
+            alt=""
+            width={84}
+            height={84}
+            priority
+          />
           <b>ORBIT DSN</b>
           <i />
           <span id="ldText">{t.loading}</span>
         </div>
       </div>
 
-      <header className="hud top">
+      <header className={`hud top${menu ? " menu-open" : ""}`}>
         {/* Plain link on purpose: the engine intercepts the click and flies back to the overview. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a className="brand" href="/" id="brandLink">
-          <Image className="brand-logo" src="/logo.png" alt="" width={40} height={40} priority />
+          <Image
+            className="brand-logo"
+            src="/logo.png"
+            unoptimized
+            alt=""
+            width={40}
+            height={40}
+            priority
+          />
           <span>
             <b id="brandName">{token.name}</b>
             <small>{t.agency}</small>
@@ -69,16 +96,39 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         </dl>
         <div className="spacer" />
         <span className="demo">{t.demo}</span>
-        {/* Filled by the engine: "Connect wallet", then "My planet" and the account menu. */}
-        <span className="acct" id="acct" />
-        {/* Full page loads on purpose: the 3D engine starts once per document. */}
-        {}
-        <a className="btn" href="/rules">
-          {t.rules}
-        </a>
-        <a className="btn" id="xLink" href={token.xUrl} target="_blank" rel="noopener noreferrer">
-          X
-        </a>
+        <nav
+          className="nav"
+          id="nav"
+          aria-label={t.menu}
+          onClick={(e) => {
+            // Leaving the page or opening a dialog closes the phone menu.
+            if ((e.target as Element).closest("a, #connectBtn, #myPlanetBtn")) setMenu(false);
+          }}
+        >
+          {/* Filled by the engine: "Connect wallet", then "My planet" and the account menu. */}
+          <span className="acct" id="acct" />
+          {/* Full page loads on purpose: the 3D engine starts once per document. */}
+          {}
+          <a className="btn" href="/rules">
+            {t.rules}
+          </a>
+          {}
+          <a className="btn" href="/faq">
+            {t.faq}
+          </a>
+          <a className="btn" id="xLink" href={token.xUrl} target="_blank" rel="noopener noreferrer">
+            X
+          </a>
+        </nav>
+        <button
+          className="btn menu-btn"
+          type="button"
+          aria-expanded={menu}
+          aria-controls="nav"
+          onClick={() => setMenu((m) => !m)}
+        >
+          {menu ? t.close : t.menu}
+        </button>
         <a
           className="btn primary"
           id="buyLink"
