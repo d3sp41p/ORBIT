@@ -1225,3 +1225,25 @@ dl.kv dd.num {
     display: none;
   }
 }
+
+/* logo: its dark backdrop melts into the black page */
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+.ld-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  margin-bottom: 6px;
+  animation: ldGlow 2.4s ease-in-out infinite;
+}
+@keyframes ldGlow {
+  50% {
+    filter: brightness(1.25);
+  }
+}

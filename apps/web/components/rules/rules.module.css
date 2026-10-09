@@ -90,9 +90,13 @@
   color: #fff;
   text-decoration: none;
 }
-.brand svg {
-  width: 30px;
-  height: 30px;
+.logo {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: brightness(1.35) contrast(1.1);
 }
 .brand span {
   display: flex;

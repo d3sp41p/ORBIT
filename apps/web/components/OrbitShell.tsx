@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect } from "react";
 import { copy as t } from "@/orbit/copy";
 import type { PublicToken } from "@/lib/token";
@@ -27,6 +28,7 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
       <canvas id="ov" />
       <div id="loading">
         <div className="ld">
+          <Image className="ld-logo" src="/logo.jpg" alt="" width={84} height={84} priority />
           <b>ORBIT DSN</b>
           <i />
           <span id="ldText">{t.loading}</span>
@@ -37,21 +39,7 @@ export default function OrbitShell({ token }: { token: PublicToken }) {
         {/* Plain link on purpose: the engine intercepts the click and flies back to the overview. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a className="brand" href="/" id="brandLink">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            <ellipse
-              cx="16"
-              cy="16"
-              rx="14"
-              ry="5.2"
-              transform="rotate(-24 16 16)"
-              fill="none"
-              stroke="#fc3d21"
-              strokeWidth="1.4"
-            />
-            <circle cx="16" cy="16" r="3.2" fill="currentColor" />
-            <circle cx="27.4" cy="11.2" r="1.7" fill="#fc3d21" />
-          </svg>
+          <Image className="brand-logo" src="/logo.jpg" alt="" width={40} height={40} priority />
           <span>
             <b id="brandName">{token.name}</b>
             <small>{t.agency}</small>

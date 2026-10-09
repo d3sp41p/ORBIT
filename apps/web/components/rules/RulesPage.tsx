@@ -9,6 +9,7 @@ import {
   STAR_TIERS,
   type PlanetClass,
 } from "@orbit/core";
+import Image from "next/image";
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { copy, rulesCopy as R } from "@/orbit/copy";
 import type { PublicToken } from "@/lib/token";
@@ -495,21 +496,7 @@ export default function RulesPage({ token: brand }: { token: PublicToken }) {
       <div className={s.sky} aria-hidden="true" />
       <header className={s.top}>
         <HomeLink className={s.brand}>
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            <ellipse
-              cx="16"
-              cy="16"
-              rx="14"
-              ry="5.2"
-              transform="rotate(-24 16 16)"
-              fill="none"
-              stroke="#fc3d21"
-              strokeWidth="1.4"
-            />
-            <circle cx="16" cy="16" r="3.2" fill="currentColor" />
-            <circle cx="27.4" cy="11.2" r="1.7" fill="#fc3d21" />
-          </svg>
+          <Image className={s.logo} src="/logo.jpg" alt="" width={40} height={40} priority />
           <span>
             <b>{brand.name}</b>
             <small>{copy.agency}</small>
