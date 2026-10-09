@@ -84,6 +84,8 @@ export const copy = {
   supply: "Total supply",
   ignition: "Ignition",
   evo: "Stellar evolution",
+  evoNow: "Now",
+  starRules: "How the star grows",
   under: "under ",
   flyCloser: "Fly closer",
 

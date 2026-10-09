@@ -459,6 +459,7 @@ function StarTiers() {
             style={{
               background: `radial-gradient(circle at 50% 50%, ${rgb(t.core)} 0%, ${rgb(t.edge)} 70%, transparent 72%)`,
               boxShadow: `0 0 ${18 + i * 6}px ${rgb(t.edge)}`,
+              ["--glow" as string]: rgb(t.edge),
               width: 26 + i * 8,
               height: 26 + i * 8,
               animationDelay: `${i * 0.4}s`,

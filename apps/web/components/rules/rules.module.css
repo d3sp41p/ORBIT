@@ -941,3 +941,42 @@
     transform: none;
   }
 }
+
+/* hover: stars and planets light up */
+.starItem,
+.classItem {
+  cursor: default;
+}
+.starBall,
+.classBall {
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.35s,
+    box-shadow 0.35s;
+}
+.starItem:hover .starBall {
+  transform: scale(1.18);
+  filter: brightness(1.4);
+  animation-play-state: paused;
+}
+.classItem:hover .classBall {
+  transform: translateY(-6px) scale(1.12);
+  filter: brightness(1.3);
+  box-shadow:
+    inset -8px -8px 18px rgba(0, 0, 0, 0.45),
+    0 0 26px rgba(255, 220, 170, 0.35);
+  animation-play-state: paused;
+}
+.starItem:hover b,
+.classItem:hover b {
+  color: #fff;
+}
+.starItem b,
+.classItem b {
+  transition: color 0.25s;
+}
+.starItem:hover .starBall {
+  box-shadow:
+    0 0 34px var(--glow),
+    0 0 70px var(--glow) !important;
+}

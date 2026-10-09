@@ -105,12 +105,42 @@ export function starPanelHTML(sys: SystemInfo) {
   return `${back}<header class="m-head"><div class="crumbs">${t.system} / ${t.starH}</div><h2>$${esc(sys.ticker)}</h2>
     <div class="status"><span class="live"></span>${t.classX} ${tier.cls}<span class="sep">·</span>${tier.name}</div>
     <p class="lede">${t.starLore}</p>
+    <a class="rules-link" href="/rules#star">${t.starRules} <span aria-hidden="true">→</span></a>
     <div class="addr"><span>${esc(sys.contract)}</span><button class="copy" data-copy="${esc(sys.contract)}">${t.copyCA}</button></div></header>
     <section class="sec"><h3>${t.fastFacts}</h3><dl class="facts">${fact(t.mcap, money(sys.mcap))}${fact(t.worldsOrbit, fmt(sys.count))}${fact(t.spectral, tier.cls, "", tier.name)}${fact(t.nextEvo, next ? money(tier.max) : t.max, "", next ? next.name : t.fully)}${extra}</dl></section>
-    <section class="sec"><h3>${t.evo}</h3><div class="badges">${STAR_TIERS.map(
-      (s, j) =>
-        `<div class="badge ${j === i ? "on" : j > i ? "off" : ""}"><b>${s.cls} · ${s.name}</b><small>${s.max === Infinity ? "$100M+" : t.under + money(s.max)}</small></div>`,
-    ).join("")}</div></section>`;
+    ${starEvolutionHTML(sys)}`;
+}
+
+/** Short money label for thresholds: $100K, $1M, $100M. */
+const usd = (n: number) => (n >= 1e6 ? `$${n / 1e6}M` : `$${n / 1e3}K`);
+const rgb = (c: readonly number[]) =>
+  `rgb(${c.map((v) => Math.round(Math.min(1, v) * 255)).join(",")})`;
+
+/**
+ * The five star classes as glowing, hoverable stars (current one marked),
+ * progress to the next class, and a way to the rules. Every star links to
+ * the star section of the mission rules.
+ */
+function starEvolutionHTML(sys: SystemInfo) {
+  const i = sys.tierIndex;
+  const tier = STAR_TIERS[i]!;
+  const next = STAR_TIERS[i + 1];
+  const stars = STAR_TIERS.map((s, j) => {
+    const state = j === i ? "now" : j < i ? "past" : "future";
+    const thr = s.max === Infinity ? `${usd(STAR_TIERS[j - 1]!.max)}+` : `${t.under}${usd(s.max)}`;
+    return `<a class="evo-star ${state}" href="/rules#star" aria-label="${s.cls} · ${s.name}, ${thr}${j === i ? ` (${t.evoNow})` : ""}" style="--core:${rgb(s.core)};--edge:${rgb(s.edge)};--d:${26 + j * 7}px">
+      <span class="ball"></span><b>${s.cls}</b><small>${s.name}</small><small class="thr">${thr}</small>${j === i ? `<em>${t.evoNow}</em>` : ""}</a>`;
+  }).join("");
+  // Progress inside the current class on a log scale (classes grow tenfold).
+  const lo = i === 0 ? 1e4 : STAR_TIERS[i - 1]!.max;
+  const hi = tier.max === Infinity ? lo * 10 : tier.max;
+  const pct = Math.round(
+    Math.max(0, Math.min(1, Math.log10(Math.max(sys.mcap, lo) / lo) / Math.log10(hi / lo))) * 100,
+  );
+  const progress = next
+    ? `<div class="evo-progress"><div class="bar"><i style="width:${pct}%"></i></div><div class="evo-row"><span>${money(sys.mcap)}</span><span>${usd(tier.max)} → ${next.cls} · ${next.name}</span></div></div>`
+    : `<p class="empty">${t.fully}</p>`;
+  return `<section class="sec"><h3>${t.evo}<span>${tier.cls} · ${tier.name}</span></h3><div class="evo">${stars}</div>${progress}<a class="rules-link evo-link" href="/rules#star">${t.starRules} <span aria-hidden="true">→</span></a></section>`;
 }
 
 /** Press-release items for a list of news. */

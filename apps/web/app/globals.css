@@ -1097,3 +1097,131 @@ dl.kv dd.num {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+
+/* star page: interactive stellar evolution */
+.m-head .rules-link {
+  margin-top: -2px;
+}
+.evo {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+  padding: 6px 0 4px;
+}
+.evo-star {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 4px 10px;
+  text-align: center;
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    opacity 0.25s;
+  position: relative;
+}
+.evo-star .ball {
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  margin-bottom: 8px;
+  background: radial-gradient(circle at 50% 50%, var(--core) 0%, var(--edge) 70%, transparent 72%);
+  box-shadow: 0 0 14px var(--edge);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.35s,
+    filter 0.35s;
+}
+.evo-star b {
+  font: 700 15px var(--f-sans);
+}
+.evo-star small {
+  font: 400 10.5px var(--f-sans);
+  color: var(--ink-2);
+  line-height: 1.25;
+}
+.evo-star small.thr {
+  font: 400 10px var(--f-mono);
+  color: var(--mute);
+}
+.evo-star em {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font: 600 8.5px var(--f-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-style: normal;
+  color: var(--signal);
+}
+.evo-star.future {
+  opacity: 0.45;
+}
+.evo-star.now {
+  border-color: rgba(252, 61, 33, 0.55);
+  background: rgba(252, 61, 33, 0.06);
+}
+.evo-star.now .ball {
+  animation: evoPulse 2.6s ease-in-out infinite;
+}
+.evo-star:hover,
+.evo-star:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line-strong);
+  outline: none;
+}
+.evo-star:hover .ball,
+.evo-star:focus-visible .ball {
+  transform: scale(1.18);
+  filter: brightness(1.35);
+  box-shadow:
+    0 0 30px var(--edge),
+    0 0 60px var(--edge);
+}
+@keyframes evoPulse {
+  50% {
+    box-shadow:
+      0 0 26px var(--edge),
+      0 0 44px var(--edge);
+  }
+}
+.evo-progress {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.evo-progress .bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.evo-progress .bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber), var(--signal));
+}
+.evo-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font: 500 10px var(--f-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.evo-link {
+  display: inline-block;
+  margin-top: 18px;
+}
+@media (max-width: 760px) {
+  .evo-star small:not(.thr) {
+    display: none;
+  }
+}
