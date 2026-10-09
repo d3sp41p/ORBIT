@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ORBIT promo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700;800;900&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #fff;
+        --ink2: #c9ccd3;
+        --mute: #8a8f99;
+        --signal: #fc3d21;
+        --amber: #f2b33d;
+        --good: #5fd39a;
+        --line: rgba(255, 255, 255, 0.14);
+        --line2: rgba(255, 255, 255, 0.32);
+        --sans: "Public Sans", Arial, sans-serif;
+        --mono: "IBM Plex Mono", monospace;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #000;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+      #stage {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #000;
+        color: var(--ink);
+        font-family: var(--sans);
+        transform-origin: top left;
+      }
+      #bg {
+        position: absolute;
+        inset: 0;
+      }
+      .abs {
+        position: absolute;
+      }
+      .mono {
+        font-family: var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .red {
+        color: var(--signal);
+      }
+
+      /* HUD */
+      #hud {
+        inset: 0;
+        pointer-events: none;
+      }
+      #hudTop {
+        left: 60px;
+        right: 60px;
+        top: 70px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 22px;
+        color: var(--ink2);
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 22px;
+      }
+      #hudTop b {
+        color: var(--ink);
+        letter-spacing: 0.3em;
+      }
+      .dot {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--signal);
+        margin-right: 16px;
+        box-shadow: 0 0 18px var(--signal);
+      }
+      #hudBot {
+        left: 60px;
+        right: 60px;
+        bottom: 70px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 20px;
+        color: var(--mute);
+        border-top: 1px solid var(--line);
+        padding-top: 22px;
+      }
+      .bracket {
+        width: 44px;
+        height: 44px;
+        border-color: rgba(252, 61, 33, 0.7);
+        border-style: solid;
+        border-width: 0;
+      }
+
+      /* 1. boot */
+      #s1 {
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 34px;
+      }
+      #s1 img {
+        width: 360px;
+        height: 360px;
+      }
+      #s1 .t {
+        font-weight: 800;
+        font-size: 76px;
+        letter-spacing: 0.32em;
+        margin-left: 0.32em;
+      }
+      #s1 .bar {
+        width: 520px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.12);
+        position: relative;
+      }
+      #s1 .bar i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        background: var(--signal);
+        box-shadow: 0 0 20px var(--signal);
+      }
+      #s1 .st {
+        font-size: 28px;
+        color: var(--mute);
+        min-height: 40px;
+      }
+
+      /* 2. kinetic type */
+      #s2 {
+        left: 80px;
+        right: 80px;
+        top: 520px;
+      }
+      #s2 .eyebrow {
+        font-size: 26px;
+        color: var(--signal);
+        margin-bottom: 40px;
+      }
+      #s2 .w {
+        display: block;
+        font-weight: 900;
+        font-size: 210px;
+        line-height: 0.98;
+        letter-spacing: -0.035em;
+        will-change: transform, opacity, filter;
+      }
+      #s2 .w.world {
+        color: var(--signal);
+        text-shadow: 0 0 60px rgba(252, 61, 33, 0.55);
+      }
+      #s2 .under {
+        height: 10px;
+        background: var(--signal);
+        margin-top: 26px;
+        box-shadow: 0 0 30px var(--signal);
+      }
+
+      /* 3. system captions */
+      #s3a {
+        left: 80px;
+        right: 80px;
+        top: 230px;
+      }
+      #s3a .big {
+        font-weight: 900;
+        font-size: 104px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+      #s3a .sub {
+        margin-top: 26px;
+        font-size: 26px;
+        color: var(--mute);
+      }
+      #s3b {
+        left: 80px;
+        right: 80px;
+        bottom: 210px;
+        font-weight: 800;
+        font-size: 64px;
+        line-height: 1.1;
+      }
+
+      /* 4. mission card */
+      #s4h {
+        left: 80px;
+        right: 80px;
+        top: 230px;
+        font-weight: 900;
+        font-size: 96px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+      #card {
+        left: 80px;
+        right: 80px;
+        top: 560px;
+        padding: 54px 56px 60px;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--line2);
+        box-shadow:
+          0 40px 120px rgba(0, 0, 0, 0.8),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(6px);
+      }
+      #card .cr {
+        font-size: 22px;
+        color: var(--mute);
+      }
+      #card h3 {
+        margin: 22px 0 14px;
+        font-size: 104px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      #card .stat {
+        font-size: 22px;
+        color: var(--ink2);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      #card .stat .live {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--signal);
+        box-shadow: 0 0 14px var(--signal);
+      }
+      #card .facts {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-top: 44px;
+        padding-top: 36px;
+        border-top: 1px solid var(--line);
+      }
+      #card .facts dt {
+        font-size: 18px;
+        color: var(--mute);
+      }
+      #card .facts dd {
+        margin: 10px 0 0;
+        font-weight: 800;
+        font-size: 64px;
+      }
+      #card .facts dd small {
+        font-size: 24px;
+        color: var(--mute);
+        font-weight: 500;
+        margin-left: 6px;
+      }
+      #card svg {
+        display: block;
+        width: 100%;
+        height: 260px;
+        margin-top: 30px;
+      }
+      #card .stab {
+        margin-top: 34px;
+      }
+      #card .stab .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 20px;
+        color: var(--mute);
+      }
+      #card .stab .row b {
+        color: var(--ink);
+        font-family: var(--mono);
+      }
+      #card .stab .b {
+        margin-top: 14px;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      #card .stab .b i {
+        display: block;
+        height: 100%;
+        background: var(--good);
+        box-shadow: 0 0 18px var(--good);
+      }
+
+      /* 5. news */
+      #s5h {
+        left: 80px;
+        right: 80px;
+        top: 230px;
+      }
+      #s5h .mono {
+        font-size: 24px;
+        color: var(--mute);
+        display: flex;
+        align-items: center;
+      }
+      #s5h .big {
+        margin-top: 22px;
+        font-weight: 900;
+        font-size: 96px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+      .news {
+        left: 80px;
+        right: 80px;
+        padding: 34px 40px;
+        border: 1px solid var(--line2);
+        background: rgba(8, 9, 12, 0.86);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+      }
+      .news .meta {
+        font-size: 20px;
+        display: flex;
+        gap: 22px;
+      }
+      .news .meta span:last-child {
+        color: var(--mute);
+      }
+      .news p {
+        margin: 16px 0 0;
+        font-size: 38px;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+      .news small {
+        display: block;
+        margin-top: 14px;
+        font-size: 20px;
+        color: var(--mute);
+      }
+      #s5f {
+        left: 80px;
+        right: 80px;
+        bottom: 200px;
+        font-size: 26px;
+        color: var(--ink2);
+      }
+
+      /* 6. rules */
+      #s6 {
+        left: 80px;
+        right: 80px;
+        top: 300px;
+      }
+      #s6 .l {
+        font-weight: 900;
+        font-size: 128px;
+        line-height: 0.98;
+        letter-spacing: -0.035em;
+      }
+      #s6 .k {
+        font-size: 30px;
+        margin-bottom: 18px;
+      }
+      #s6 .g {
+        color: var(--good);
+        text-shadow: 0 0 50px rgba(95, 211, 154, 0.5);
+      }
+      #s6 .r {
+        color: var(--signal);
+        text-shadow: 0 0 50px rgba(252, 61, 33, 0.6);
+      }
+      #flash {
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 66%,
+          rgba(252, 61, 33, 0.9),
+          rgba(252, 61, 33, 0.15) 40%,
+          transparent 70%
+        );
+        mix-blend-mode: screen;
+      }
+
+      /* 7. outro */
+      #s7 {
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      #s7 img {
+        width: 420px;
+        height: 420px;
+      }
+      #s7 .name {
+        margin-top: 20px;
+        font-weight: 900;
+        font-size: 170px;
+        letter-spacing: 0.14em;
+        margin-left: 0.14em;
+      }
+      #s7 .tag {
+        margin-top: 26px;
+        font-weight: 700;
+        font-size: 54px;
+      }
+      #s7 .url {
+        margin-top: 70px;
+        font-size: 40px;
+        color: var(--signal);
+      }
+      #s7 .tk {
+        margin-top: 18px;
+        font-size: 24px;
+        color: var(--mute);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="bg" width="1080" height="1920"></canvas>
+      <div id="flash" class="abs" style="opacity: 0"></div>
+
+      <section id="s1" class="abs">
+        <img id="logo1" src="../apps/web/public/logo.png" alt="" />
+        <div class="t">ORBIT DSN</div>
+        <div class="bar"><i id="bar1"></i></div>
+        <div class="st mono" id="st1"></div>
+      </section>
+
+      <section id="s2" class="abs">
+        <div class="eyebrow mono" id="e2">Holder exploration program</div>
+        <span class="w" id="w1">Every</span>
+        <span class="w" id="w2">holder</span>
+        <span class="w" id="w3">is a</span>
+        <span class="w world" id="w4">world.</span>
+        <div class="under" id="u2"></div>
+      </section>
+
+      <section id="s3a" class="abs">
+        <div class="big">Hold the token.<br /><span class="red">Get a planet.</span></div>
+        <div class="sub mono">Every holder orbits the coin-star</div>
+      </section>
+      <section id="s3b" class="abs">The star grows with<br />the market cap.</section>
+
+      <div id="s4h" class="abs">Every world<br />has a <span class="red">story.</span></div>
+      <section id="card" class="abs">
+        <div class="cr mono">System / Rocky worlds / #12</div>
+        <h3 id="cname">New Eden</h3>
+        <div class="stat mono">
+          <span class="live"></span>Active · Day 117 · Orbit era · Arboreal
+        </div>
+        <dl class="facts">
+          <div>
+            <dt class="mono">Temperature</dt>
+            <dd><span id="f1">34</span><small>°C</small></dd>
+          </div>
+          <div>
+            <dt class="mono">Population</dt>
+            <dd><span id="f2">66</span><small>B</small></dd>
+          </div>
+          <div>
+            <dt class="mono">Technology</dt>
+            <dd id="f3">4.20</dd>
+          </div>
+        </dl>
+        <svg viewBox="0 0 900 260" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fc3d21" stop-opacity=".35" />
+              <stop offset="1" stop-color="#fc3d21" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g stroke="rgba(255,255,255,.08)">
+            <line x1="0" y1="65" x2="900" y2="65" />
+            <line x1="0" y1="130" x2="900" y2="130" />
+            <line x1="0" y1="195" x2="900" y2="195" />
+          </g>
+          <path id="gfill" fill="url(#gf)" d="" />
+          <path id="gline" fill="none" stroke="#fc3d21" stroke-width="4" d="" />
+          <circle id="gdot" r="9" fill="#fff" />
+        </svg>
+        <div class="stab">
+          <div class="row mono"><span>Stability</span><b id="sv">82 / 100</b></div>
+          <div class="b"><i id="sb"></i></div>
+        </div>
+      </section>
+
+      <section id="s5h" class="abs">
+        <div class="mono"><span class="dot"></span>Mission news · live</div>
+        <div class="big">Your hold writes<br />the <span class="red">history.</span></div>
+      </section>
+      <article class="news abs" id="n1" style="top: 700px">
+        <div class="meta mono">
+          <span style="color: #fff">Milestone</span><span>Day 32 · 14:05 UTC</span>
+        </div>
+        <p>Life! The first microbes appeared in salty lagoons.</p>
+        <small>New Eden · #12 · Rocky world</small>
+      </article>
+      <article class="news abs" id="n2" style="top: 1010px">
+        <div class="meta mono">
+          <span style="color: #f2b33d">Discovery</span><span>Day 88 · 02:41 UTC</span>
+        </div>
+        <p>A black monolith turned up on the far side of the moon.</p>
+        <small>Solbro 8GI · #1 · Supergiant</small>
+      </article>
+      <article class="news abs" id="n3" style="top: 1320px">
+        <div class="meta mono">
+          <span style="color: #fc3d21">Alert</span><span>Day 117 · 09:12 UTC</span>
+        </div>
+        <p>Nuclear winter: the holder sold 32% of their tokens.</p>
+        <small>Anix 8SK · #6 · Gas giant</small>
+      </article>
+      <div id="s5f" class="abs mono">Simulated from real on-chain events · written by AI</div>
+
+      <section id="s6" class="abs">
+        <div id="h6a">
+          <div class="k mono g">Hold</div>
+          <div class="l">Your world<br /><span class="g">grows.</span></div>
+        </div>
+        <div id="h6b" style="margin-top: 90px">
+          <div class="k mono r">Sell</div>
+          <div class="l"><span class="r">Catastrophe.</span></div>
+        </div>
+      </section>
+
+      <section id="s7" class="abs">
+        <img id="logo7" src="../apps/web/public/logo.png" alt="" />
+        <div class="name">ORBIT</div>
+        <div class="tag">Every holder is a <span class="red">world.</span></div>
+        <div class="url mono">orbit.mba</div>
+        <div class="tk mono">$ORBIT · live on Solana</div>
+      </section>
+
+      <section id="hud" class="abs">
+        <div id="hudTop" class="abs mono">
+          <span><span class="dot"></span><b>ORBIT</b>&nbsp;&nbsp;Deep space network</span
+          ><span id="utc">UTC 12:00:00</span>
+        </div>
+        <div id="hudBot" class="abs mono">
+          <span id="met">T+117d 04:05:24</span><span>650 worlds · class G</span>
+        </div>
+        <div
+          class="abs bracket"
+          style="left: 60px; top: 150px; border-left-width: 3px; border-top-width: 3px"
+        ></div>
+        <div
+          class="abs bracket"
+          style="right: 60px; top: 150px; border-right-width: 3px; border-top-width: 3px"
+        ></div>
+        <div
+          class="abs bracket"
+          style="left: 60px; bottom: 150px; border-left-width: 3px; border-bottom-width: 3px"
+        ></div>
+        <div
+          class="abs bracket"
+          style="right: 60px; bottom: 150px; border-right-width: 3px; border-bottom-width: 3px"
+        ></div>
+      </section>
+    </div>
+
+    <script>
+      /*
+       * ORBIT promo, 1080x1920, 25 s. Every frame is a pure function of time:
+       * render(t) draws the canvas and sets every element's style, so the video
+       * renderer can step frame by frame. Opened in a browser it plays in a loop.
+       */
+      const DURATION = 25;
+      const W = 1080,
+        H = 1920;
+      const $ = (id) => document.getElementById(id);
+      const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+      const seg = (t, a, b) => clamp((t - a) / (b - a));
+      const out3 = (x) => 1 - Math.pow(1 - clamp(x), 3);
+      const outBack = (x) => {
+        x = clamp(x);
+        const c = 1.7;
+        return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2);
+      };
+      const inOut = (x) => {
+        x = clamp(x);
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+      };
+      /** 0..1..0 window: fades in over fi after a, out over fo before b. */
+      const win = (t, a, b, fi = 0.35, fo = 0.35) =>
+        Math.min(seg(t, a, a + fi), 1 - seg(t, b - fo, b));
+
+      // seeded random
+      let seed = 7;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const STARS = Array.from({ length: 520 }, () => ({
+        x: rnd() * W,
+        y: rnd() * H,
+        r: rnd() < 0.08 ? 2.2 : 1 + rnd() * 0.8,
+        a: 0.2 + rnd() * 0.7,
+        tw: rnd() * 6.28,
+        z: 0.3 + rnd() * 0.7,
+      }));
+      const PLANETS = [
+        {
+          r: 150,
+          s: 0.55,
+          a: -1.63,
+          size: 13,
+          c: ["#c9f0ff", "#4f9fc4"],
+          label: "VELOR 2KD",
+          sub: "#9 · ICE GIANT",
+        },
+        {
+          r: 230,
+          s: 0.38,
+          a: 1.99,
+          size: 18,
+          c: ["#f2c58c", "#c46a35"],
+          label: "ANIX 8SK",
+          sub: "#6 · GAS GIANT",
+        },
+        {
+          r: 320,
+          s: 0.27,
+          a: -1.97,
+          size: 15,
+          c: ["#7fb8d8", "#2f6b4f"],
+          label: "NEW EDEN",
+          sub: "#12 · ROCKY WORLD",
+          hot: true,
+        },
+        {
+          r: 410,
+          s: 0.2,
+          a: 0.7,
+          size: 22,
+          c: ["#e0b98a", "#9a5a3a"],
+          label: "SOLBRO 8GI",
+          sub: "#1 · SUPERGIANT",
+        },
+        { r: 480, s: 0.16, a: 3.3, size: 8, c: ["#b9b2a8", "#6b645c"] },
+        { r: 520, s: 0.14, a: 5.4, size: 7, c: ["#b9b2a8", "#6b645c"] },
+      ];
+      const ASTEROIDS = Array.from({ length: 90 }, () => ({
+        r: 450 + rnd() * 110,
+        a: rnd() * 6.28,
+        s: 0.08 + rnd() * 0.06,
+        size: 1.5 + rnd() * 2.5,
+      }));
+
+      const cv = $("bg"),
+        g = cv.getContext("2d");
+
+      function sky(t, k) {
+        g.fillStyle = "#000";
+        g.fillRect(0, 0, W, H);
+        const neb = g.createRadialGradient(W * 0.7, H * 0.35, 0, W * 0.7, H * 0.35, 900);
+        neb.addColorStop(0, "rgba(40,24,60,.35)");
+        neb.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = neb;
+        g.fillRect(0, 0, W, H);
+        for (const s of STARS) {
+          const y = (s.y + t * 18 * s.z * k) % H;
+          g.globalAlpha = s.a * (0.65 + 0.35 * Math.sin(t * 2 + s.tw));
+          g.fillStyle = "#fff";
+          g.fillRect(s.x, y, s.r, s.r);
+        }
+        g.globalAlpha = 1;
+      }
+
+      /** Perspective grid floor, as in a holo table. */
+      function grid(t, alpha) {
+        if (alpha <= 0) return;
+        const hz = 1180,
+          vx = W / 2;
+        g.save();
+        g.globalAlpha = alpha;
+        g.lineWidth = 1.5;
+        for (let i = -14; i <= 14; i++) {
+          g.strokeStyle = "rgba(255,255,255,.10)";
+          g.beginPath();
+          g.moveTo(vx + i * 30, hz);
+          g.lineTo(vx + i * 260, H);
+          g.stroke();
+        }
+        const sp = (t * 0.6) % 1;
+        for (let j = 0; j < 14; j++) {
+          const d = (j + sp) / 14,
+            y = hz + Math.pow(d, 2.2) * (H - hz);
+          g.strokeStyle = `rgba(255,255,255,${0.04 + d * 0.12})`;
+          g.beginPath();
+          g.moveTo(0, y);
+          g.lineTo(W, y);
+          g.stroke();
+        }
+        const glow = g.createLinearGradient(0, hz - 60, 0, hz + 80);
+        glow.addColorStop(0, "rgba(252,61,33,0)");
+        glow.addColorStop(0.5, "rgba(252,61,33,.35)");
+        glow.addColorStop(1, "rgba(252,61,33,0)");
+        g.fillStyle = glow;
+        g.fillRect(0, hz - 60, W, 140);
+        g.restore();
+      }
+
+      function starGlow(x, y, r, alpha) {
+        const gr = g.createRadialGradient(x, y, 0, x, y, r * 6);
+        gr.addColorStop(0, `rgba(255,248,225,${alpha})`);
+        gr.addColorStop(0.12, `rgba(255,214,140,${alpha * 0.9})`);
+        gr.addColorStop(0.35, `rgba(252,140,60,${alpha * 0.25})`);
+        gr.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, y, r * 6, 0, 6.29);
+        g.fill();
+      }
+
+      function ball(x, y, r, c, alpha = 1) {
+        g.globalAlpha = alpha;
+        const gr = g.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r);
+        gr.addColorStop(0, c[0]);
+        gr.addColorStop(0.6, c[1]);
+        gr.addColorStop(1, "#05070a");
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, y, r, 0, 6.29);
+        g.fill();
+        g.globalAlpha = 1;
+      }
+
+      /** The star system in perspective; `p` is how far it has unfolded. */
+      function system(t, alpha, p, cx, cy, scale, labels = true) {
+        if (alpha <= 0) return;
+        g.save();
+        g.globalAlpha = alpha;
+        const tilt = 0.34;
+        starGlow(cx, cy, 34 * scale, 1);
+        for (const pl of PLANETS) {
+          const rr = pl.r * scale * out3(p);
+          g.strokeStyle = pl.hot ? "rgba(252,61,33,.85)" : "rgba(255,255,255,.16)";
+          g.lineWidth = pl.hot ? 2.5 : 1.3;
+          g.beginPath();
+          g.ellipse(cx, cy, rr, rr * tilt, 0, 0, 6.29);
+          g.stroke();
+        }
+        for (const a of ASTEROIDS) {
+          const ang = a.a + t * a.s,
+            rr = a.r * scale * out3(p);
+          g.fillStyle = "rgba(200,190,180,.55)";
+          g.fillRect(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr * tilt, a.size, a.size);
+        }
+        for (const pl of PLANETS) {
+          const ang = pl.a + t * pl.s,
+            rr = pl.r * scale * out3(p);
+          const x = cx + Math.cos(ang) * rr,
+            y = cy + Math.sin(ang) * rr * tilt;
+          ball(x, y, pl.size * scale, pl.c, alpha);
+          if (labels && pl.label && p > 0.9) {
+            const la = alpha * seg(p, 0.9, 1);
+            g.globalAlpha = la;
+            g.strokeStyle = pl.hot ? "#fc3d21" : "rgba(255,255,255,.55)";
+            g.lineWidth = 1.5;
+            // labels near the right edge point left so they stay on screen
+            const dir = x > W - 330 ? -1 : 1;
+            g.textAlign = dir > 0 ? "left" : "right";
+            g.beginPath();
+            g.moveTo(x + dir * pl.size * scale, y - pl.size * scale);
+            g.lineTo(x + dir * 40, y - 46);
+            g.lineTo(x + dir * 70, y - 46);
+            g.stroke();
+            g.fillStyle = "#fff";
+            g.font = "600 22px 'IBM Plex Mono'";
+            g.fillText(pl.label, x + dir * 78, y - 52);
+            g.fillStyle = pl.hot ? "#fc3d21" : "#8a8f99";
+            g.font = "500 17px 'IBM Plex Mono'";
+            g.fillText(pl.sub, x + dir * 78, y - 28);
+            g.textAlign = "left";
+            if (pl.hot) {
+              // red corner brackets around the selected world
+              const b = pl.size * scale + 16,
+                L = 12;
+              g.strokeStyle = "#fc3d21";
+              g.lineWidth = 2.5;
+              for (const [sx, sy] of [
+                [-1, -1],
+                [1, -1],
+                [-1, 1],
+                [1, 1],
+              ]) {
+                g.beginPath();
+                g.moveTo(x + sx * b, y + sy * (b - L));
+                g.lineTo(x + sx * b, y + sy * b);
+                g.lineTo(x + sx * (b - L), y + sy * b);
+                g.stroke();
+              }
+            }
+            g.globalAlpha = alpha;
+          }
+        }
+        g.restore();
+      }
+
+      /** Scene 6: a planet that grows while held, then an asteroid hits. */
+      function holdSell(t, alpha) {
+        if (alpha <= 0) return;
+        const cx = W / 2,
+          cy = 1380;
+        const grow = out3(seg(t, 19.2, 20.4));
+        const hit = seg(t, 20.45, 20.75);
+        const r = 120 + grow * 70 - (t > 20.75 ? 25 * out3(seg(t, 20.75, 21.2)) : 0);
+        g.save();
+        g.globalAlpha = alpha;
+        starGlow(cx - 380, cy - 520, 10, 0.7);
+        // rings while held
+        g.strokeStyle = `rgba(242,197,140,${0.6 * grow * (1 - hit)})`;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.ellipse(cx, cy, r * 1.9, r * 0.5, -0.25, 0, 6.29);
+        g.stroke();
+        ball(cx, cy, r, t > 20.75 ? ["#a26a52", "#4a2a20"] : ["#7fb8d8", "#2f6b4f"], alpha);
+        // city lights while held
+        if (t < 20.75)
+          for (let i = 0; i < 26; i++) {
+            const a = i * 2.39,
+              d = ((i % 7) / 8) * r * 0.85;
+            g.fillStyle = `rgba(255,214,140,${0.8 * grow})`;
+            g.fillRect(cx + Math.cos(a) * d * 0.9 + r * 0.15, cy + Math.sin(a) * d * 0.6, 3, 3);
+          }
+        // the asteroid
+        if (t > 20.0 && t < 20.8) {
+          const k = seg(t, 20.0, 20.55);
+          const ax = cx + 520 - k * 520 + r * 0.5,
+            ay = cy - 700 + k * 700 - r * 0.3;
+          const tr = g.createLinearGradient(ax, ay, ax + 260, ay - 260);
+          tr.addColorStop(0, "rgba(255,180,120,.95)");
+          tr.addColorStop(1, "rgba(255,120,60,0)");
+          g.strokeStyle = tr;
+          g.lineWidth = 10;
+          g.beginPath();
+          g.moveTo(ax, ay);
+          g.lineTo(ax + 260, ay - 260);
+          g.stroke();
+          ball(ax, ay, 12, ["#ffe2c0", "#b06a3a"], alpha);
+        }
+        // impact: fire ring and cracks
+        if (t > 20.55) {
+          const e = seg(t, 20.55, 21.6);
+          g.strokeStyle = `rgba(252,61,33,${0.9 * (1 - e)})`;
+          g.lineWidth = 8;
+          g.beginPath();
+          g.arc(cx + r * 0.45, cy - r * 0.3, 20 + e * 260, 0, 6.29);
+          g.stroke();
+          g.strokeStyle = `rgba(255,140,80,${0.8 * (1 - e * 0.6)})`;
+          g.lineWidth = 3;
+          for (let i = 0; i < 7; i++) {
+            const a = i * 0.9 + 0.3;
+            g.beginPath();
+            g.moveTo(cx + r * 0.45, cy - r * 0.3);
+            g.lineTo(
+              cx + r * 0.45 + Math.cos(a) * r * 0.7 * out3(e * 3),
+              cy - r * 0.3 + Math.sin(a) * r * 0.7 * out3(e * 3),
+            );
+            g.stroke();
+          }
+        }
+        g.restore();
+      }
+
+      /* ---------- DOM helpers ---------- */
+      function show(el, o, tx = 0, ty = 0, sc = 1, blur = 0) {
+        el.style.opacity = o.toFixed(3);
+        el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+        el.style.transform = `translate(${tx}px, ${ty}px) scale(${sc})`;
+        el.style.filter = blur > 0.05 ? `blur(${blur.toFixed(1)}px)` : "none";
+      }
+      /** Glitch: horizontal slice shifts while `k` > 0. */
+      function glitch(el, k, t) {
+        if (k <= 0) {
+          el.style.clipPath = "none";
+          return;
+        }
+        const s = Math.floor(t * 30);
+        const y1 = (s * 37) % 100,
+          h = 6 + ((s * 13) % 18),
+          dx = (((s * 53) % 60) - 30) * k;
+        el.style.clipPath = `polygon(0 0,100% 0,100% ${y1}%,${100 + dx / 10}% ${y1}%,${100 + dx / 10}% ${y1 + h}%,100% ${y1 + h}%,100% 100%,0 100%)`;
+        el.style.transform += ` translateX(${dx * (s % 2 ? 1 : -1) * 0.4}px)`;
+        el.style.textShadow = `${-6 * k}px 0 rgba(252,61,33,.8), ${6 * k}px 0 rgba(80,200,255,.6)`;
+      }
+      const pad = (n) => String(Math.floor(n)).padStart(2, "0");
+      const typed = (s, k) => s.slice(0, Math.round(s.length * clamp(k)));
+
+      function graph(k) {
+        const pts = [];
+        for (let i = 0; i <= 40; i++) {
+          const x = i / 40;
+          const y =
+            0.82 -
+            0.62 * Math.pow(x, 1.6) +
+            0.05 * Math.sin(x * 19) -
+            (x > 0.7 ? 0.06 * Math.sin((x - 0.7) * 20) : 0);
+          pts.push([x * 900, y * 260]);
+        }
+        const n = Math.max(2, Math.round(pts.length * clamp(k)));
+        const p = pts.slice(0, n);
+        const d = p.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join("");
+        $("gline").setAttribute("d", d);
+        $("gfill").setAttribute("d", `${d}L${p[p.length - 1][0]},260L0,260Z`);
+        $("gdot").setAttribute("cx", p[p.length - 1][0]);
+        $("gdot").setAttribute("cy", p[p.length - 1][1]);
+      }
+
+      /* ---------- the frame ---------- */
+      function render(t) {
+        // background
+        sky(t, 1);
+        grid(t, Math.max(win(t, 0, 7.2, 0.8, 0.6) * 0.9, win(t, 18.8, 25, 0.6, 0.4) * 0.7));
+        const sysA = win(t, 6.8, 11.4, 0.6, 0.6);
+        system(t, sysA, out3(seg(t, 6.9, 8.6)), W / 2, 1120, 1.22);
+        // background system behind card / news, smaller and dim
+        system(t, win(t, 11.0, 19.0, 0.6, 0.6) * 0.35, 1, W / 2, 1500, 0.9, false);
+        holdSell(t, win(t, 19.0, 22.6, 0.4, 0.5));
+        system(
+          t,
+          win(t, 22.4, 25.2, 0.8, 0.1) * 0.45,
+          out3(seg(t, 22.4, 24)),
+          W / 2,
+          960,
+          1.15,
+          false,
+        );
+
+        // HUD
+        const hudA = seg(t, 0.8, 1.6);
+        show($("hud"), hudA);
+        const sec = 12 * 3600 + 5 * 60 + t;
+        $("utc").textContent = `UTC ${pad(sec / 3600)}:${pad((sec / 60) % 60)}:${pad(sec % 60)}`;
+        const met = 117 * 86400 + 4 * 3600 + 5 * 60 + 24 + t * 37;
+        $("met").textContent =
+          `T+${Math.floor(met / 86400)}d ${pad((met / 3600) % 24)}:${pad((met / 60) % 60)}:${pad(met % 60)}`;
+
+        // 1. boot
+        const a1 = win(t, 0, 3.1, 0.2, 0.35);
+        show($("s1"), a1, 0, 0, 1 + 0.04 * seg(t, 0, 3));
+        glitch($("s1"), Math.max(1 - seg(t, 0.15, 0.9), seg(t, 2.75, 3.1)) * (t < 3.1 ? 1 : 0), t);
+        show($("logo1"), out3(seg(t, 0.1, 0.8)), 0, 0, 0.7 + 0.3 * outBack(seg(t, 0.1, 0.9)));
+        $("bar1").style.width = `${inOut(seg(t, 0.6, 2.7)) * 100}%`;
+        $("st1").textContent =
+          t < 2.3 ? typed("Establishing link…", seg(t, 0.7, 1.8)) : "Link established";
+        $("st1").style.color = t < 2.3 ? "" : "#5fd39a";
+
+        // 2. kinetic type
+        const a2 = win(t, 3.0, 7.1, 0.2, 0.45);
+        show($("s2"), a2, 0, -120 * seg(t, 6.65, 7.1));
+        show($("e2"), seg(t, 3.0, 3.4), 0, 20 * (1 - out3(seg(t, 3.0, 3.4))));
+        [
+          [3.2, "w1"],
+          [3.65, "w2"],
+          [4.1, "w3"],
+          [4.6, "w4"],
+        ].forEach(([at, id], i) => {
+          const k = seg(t, at, at + 0.45);
+          show(
+            $(id),
+            out3(k),
+            (i % 2 ? 1 : -1) * 160 * (1 - out3(k)),
+            0,
+            1 + 0.5 * (1 - outBack(k)),
+            18 * (1 - k),
+          );
+        });
+        $("u2").style.width = `${out3(seg(t, 5.0, 5.7)) * 100}%`;
+
+        // 3. system captions
+        show($("s3a"), win(t, 7.6, 11.2, 0.5, 0.4), 0, 40 * (1 - out3(seg(t, 7.6, 8.2))));
+        show($("s3b"), win(t, 8.8, 11.2, 0.5, 0.4), 0, 40 * (1 - out3(seg(t, 8.8, 9.4))));
+
+        // 4. mission card
+        show($("s4h"), win(t, 11.2, 15.1, 0.4, 0.4), -60 * (1 - out3(seg(t, 11.2, 11.7))));
+        const c = seg(t, 11.4, 12.2);
+        show(
+          $("card"),
+          win(t, 11.4, 15.2, 0.3, 0.4),
+          0,
+          500 * (1 - out3(c)),
+          0.92 + 0.08 * out3(c),
+        );
+        $("cname").textContent = typed("New Eden", seg(t, 11.9, 12.6)) || " ";
+        const fk = out3(seg(t, 12.3, 13.4));
+        $("f1").textContent = Math.round(34 * fk);
+        $("f2").textContent = Math.round(66 * fk);
+        $("f3").textContent = (4.2 * fk).toFixed(2);
+        graph(seg(t, 12.5, 14.4));
+        const sk = out3(seg(t, 13.0, 14.2));
+        $("sb").style.width = `${82 * sk}%`;
+        $("sv").textContent = `${Math.round(82 * sk)} / 100`;
+
+        // 5. news
+        show($("s5h"), win(t, 15.1, 19.0, 0.4, 0.4), 0, 30 * (1 - out3(seg(t, 15.1, 15.6))));
+        [
+          [15.5, "n1"],
+          [16.3, "n2"],
+          [17.1, "n3"],
+        ].forEach(([at, id]) => {
+          const k = seg(t, at, at + 0.5);
+          show($(id), win(t, at, 19.0, 0.35, 0.4), 700 * (1 - out3(k)), 0, 1, 10 * (1 - k));
+        });
+        const alertHit = seg(t, 17.35, 17.7);
+        $("n3").style.borderColor = alertHit > 0 && alertHit < 1 ? "#fc3d21" : "";
+        show($("s5f"), win(t, 17.6, 19.0, 0.4, 0.4));
+
+        // 6. hold / sell
+        show($("s6"), win(t, 19.0, 22.5, 0.3, 0.4));
+        const ha = seg(t, 19.2, 19.7),
+          hb = seg(t, 20.4, 20.8);
+        show($("h6a"), out3(ha), -200 * (1 - out3(ha)), 0, 1, 12 * (1 - ha));
+        const shake = t > 20.55 && t < 21.1 ? (1 - seg(t, 20.55, 21.1)) * 18 : 0;
+        show(
+          $("h6b"),
+          out3(hb),
+          Math.sin(t * 90) * shake,
+          Math.cos(t * 77) * shake,
+          1 + 0.3 * (1 - outBack(hb)),
+          12 * (1 - hb),
+        );
+        $("flash").style.opacity = (
+          t > 20.5 ? Math.max(0, 1 - seg(t, 20.55, 21.3)) * 0.85 : 0
+        ).toFixed(3);
+        $("stage").style.transform = shake
+          ? `translate(${Math.sin(t * 60) * shake * 0.6}px, ${Math.cos(t * 50) * shake * 0.6}px)`
+          : "";
+
+        // 7. outro
+        const a7 = seg(t, 22.5, 23.0);
+        show($("s7"), a7, 0, 0, 1 + 0.05 * (1 - out3(seg(t, 22.5, 24))));
+        glitch($("s7"), (1 - seg(t, 22.5, 23.1)) * (t > 22.5 ? 1 : 0), t);
+        show($("logo7"), out3(seg(t, 22.6, 23.3)), 0, 0, 0.6 + 0.4 * outBack(seg(t, 22.6, 23.4)));
+        document.querySelectorAll("#s7 > div").forEach((el, i) => {
+          const k = seg(t, 23.0 + i * 0.22, 23.5 + i * 0.22);
+          show(el, out3(k), 0, 40 * (1 - out3(k)));
+        });
+      }
+
+      window.render = render;
+      window.DURATION = DURATION;
+
+      // In a normal browser window: fit the stage on screen and loop.
+      if (!new URLSearchParams(location.search).has("capture")) {
+        const fit = () => {
+          const s = Math.min(innerWidth / W, innerHeight / H);
+          $("stage").style.zoom = s;
+        };
+        addEventListener("resize", fit);
+        fit();
+        const t0 = performance.now();
+        const loop = () => {
+          render(((performance.now() - t0) / 1000) % DURATION);
+          requestAnimationFrame(loop);
+        };
+        document.fonts.ready.then(() => requestAnimationFrame(loop));
+      }
+    </script>
+  </body>
+</html>
